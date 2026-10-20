@@ -218,6 +218,17 @@ Activity mode: [live app and editor, explicit static fallback, focused alternati
   every turn, so a twelve-turn request once ran for 12 minutes. A provider per request now
   remembers the model that answered and goes straight to it, and the loop has a wall-clock
   budget. Requests now finish in ~60-75 seconds.
+- **Tested: a 100-brick build does not work (yet), and the reason is known.** With an explicit
+  "at least 100 bricks" request the model DID emit 81 bricks, but it could not repair them:
+  the violation count oscillated (41 → 22 → 18 → 37 → 10 → 17 → 24) instead of converging,
+  the request hit the 150s budget with 24 violations outstanding, and the three-strike rule
+  then dropped everything illegal, leaving a 3-brick build. The model is bad at fixing 40
+  coordinates at once, because every edit re-derives the support chain of the whole grid.
+  The fix is architectural, not a bigger prompt: a **merge-based grow tool** — `grow_build`
+  appends a section to the CURRENT design server-side and validates the merged result, so the
+  model only ever sends the 10-20 new bricks instead of re-planning the whole grid. Recorded
+  here as the known next step; the demo range today is 30-60 bricks, which the PRD allows
+  ("a target the prompt asks for, not a hard limit").
 - **An external client driving the app was built, then removed at the learner's request.**
   It worked end to end: the MCP server read the user's live collection from the local server,
   Claude designed against it, the kernel validated it, and the design landed on the canvas

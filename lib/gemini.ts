@@ -64,7 +64,7 @@ export function createGeminiProvider(): ChatProvider {
           if (workingModel && model !== workingModel) continue;
 
           const controller = new AbortController();
-          const timer = setTimeout(() => controller.abort(), 120_000);
+          const timer = setTimeout(() => controller.abort(), 100_000);
           let res: Response;
           try {
             res = await fetch(`${BASE}/models/${model}:streamGenerateContent?alt=sse`, {
