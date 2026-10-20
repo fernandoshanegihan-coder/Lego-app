@@ -1,47 +1,63 @@
 "use client";
 
-import type { PlacedBrick } from "@/lib/types";
+import { useEffect, useMemo, useState } from "react";
+import { Canvas } from "@react-three/fiber";
+import type { PlacedBrick, Pool } from "@/lib/types";
+import Scene from "@/scene/Scene";
 
 /**
- * The 3D canvas — placeholder this slice, so the page reads as the product from
- * slice one. The warm surface + faint stud grid is CSS here; real geometry
- * arrives in slice 6.
+ * The 3D canvas. `spec.md > Components > BuildCanvas`.
  *
- * Slice 5 gives it the validated design, so the count appears the moment the
- * kernel passes.
+ * Bricks arrive sorted by y and are revealed on a ~25ms interval, so the model
+ * assembles itself bottom-up instead of appearing all at once.
  */
 export default function BuildCanvas({
   bricks,
+  pool,
   name,
 }: {
   bricks: PlacedBrick[];
+  pool: Pool;
   name: string;
 }) {
+  const [revealed, setRevealed] = useState(0);
+
+  // A new build restarts the reveal; the same build stays put.
+  const signature = useMemo(
+    () => bricks.map((b) => `${b.partNum}:${b.colorId}:${b.x},${b.y},${b.z}`).join("|"),
+    [bricks],
+  );
+
+  useEffect(() => {
+    setRevealed(0);
+    if (bricks.length === 0) return;
+    let i = 0;
+    const timer = setInterval(() => {
+      i += 1;
+      setRevealed(i);
+      if (i >= bricks.length) clearInterval(timer);
+    }, 25);
+    return () => clearInterval(timer);
+  }, [signature, bricks.length]);
+
   return (
     <div
       className="relative flex-1 overflow-hidden"
-      style={{
-        background: `radial-gradient(circle at 50% 35%, rgba(255,255,255,0.5), transparent 60%), var(--canvas)`,
-        backgroundImage: `radial-gradient(circle, rgba(42,38,32,0.05) 2.2px, transparent 2.6px)`,
-        backgroundSize: "22px 22px",
-      }}
+      style={{ background: "var(--canvas)" }}
       id="build-canvas"
     >
-      {bricks.length > 0 ? (
+      <Canvas shadows dpr={[1, 1.75]} camera={{ position: [16, 13, 16], fov: 38 }}>
+        <Scene bricks={bricks} pool={pool} revealed={revealed} />
+      </Canvas>
+
+      {bricks.length > 0 && (
         <span
-          className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-sm"
-          style={{ color: "var(--faint)" }}
+          className="pointer-events-none absolute left-4 top-3 text-xs"
+          style={{ color: "var(--dim)" }}
           id="canvas-summary"
         >
           {name ? `${name} — ` : ""}
-          {bricks.length.toLocaleString("en-US")} bricks ready
-        </span>
-      ) : (
-        <span
-          className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-sm"
-          style={{ color: "var(--faint)" }}
-        >
-          Your build will assemble here
+          {bricks.length.toLocaleString("en-US")} bricks
         </span>
       )}
     </div>

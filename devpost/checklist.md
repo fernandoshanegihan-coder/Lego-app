@@ -102,7 +102,7 @@ Build mode: fast — chosen at first session (learner is agent-experienced and d
   the counter should change and stay green.
   Commit: `Self-correction loop: validate, fix, and drop on six-turn failure`
 
-- [ ] **6. The build appears as real bricks, assembling layer by layer**
+- [x] **6. The build appears as real bricks, assembling layer by layer**
   Becomes usable: The validated design renders in 3D — beveled bodies, cylindrical studs, angled slope faces —
   on a warm stud baseplate with studio lighting; bricks appear bottom-up on a reveal interval and the model
   can be orbited.
@@ -180,6 +180,10 @@ Activity mode: [live app and editor, explicit static fallback, focused alternati
 - **An empty design is not a build.** A zero-brick list used to pass the kernel vacuously and produce
   a build event with 0 bricks. `validate_build` and `save_build` now refuse an empty design, and the
   three-strike fallback only emits a build when at least one brick survives.
+- **`?demo=1` instead of `?fixture=kart`.** The slice-6 plan called for a canned fixture route. The
+  demo hook instead assembles a small legal build FROM THE USER'S OWN COLLECTION
+  (`lib/sampleBuild.ts`), so it can never show a brick the user doesn't have — the same rule the
+  product makes everywhere else. It is also a deterministic shot for the demo video.
 
 Pending doc polish (ship stage): regenerate `scope.html` / `spec.html` from their Markdown so the rendered
 artifacts carry the provider note; README must credit Rebrickable and document `GEMINI_API_KEY`.

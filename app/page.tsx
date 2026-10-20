@@ -10,11 +10,12 @@
  * The kernel strip's state is also here: it is the product's central claim,
  * so it is surfaced rather than hidden (`prd.md > Product Decisions`).
  */
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { PlacedBrick, StoredSet } from "@/lib/types";
 import type { ChatEvent } from "@/lib/sse";
 import { loadCollection, saveCollection } from "@/lib/storage";
-import { addSet } from "@/lib/collection";
+import { addSet, aggregate } from "@/lib/collection";
+import { sampleBuild } from "@/lib/sampleBuild";
 import Toolbar from "@/components/Toolbar";
 import BuildCanvas from "@/components/BuildCanvas";
 import KernelStrip, { type KernelState } from "@/components/KernelStrip";
@@ -44,6 +45,28 @@ export default function Page() {
 
   const buildable = sets.reduce((s, set) => s + set.buildableParts, 0);
 
+  // The renderer resolves each brick's real size and colour from the pool —
+  // the same source of truth the validator uses.
+  const pool = useMemo(() => aggregate(sets), [sets]);
+
+  // `?demo=1` renders a small legal build straight from the collection —
+  // a deterministic first look, and a stable shot for the demo video.
+  const demo = useMemo(
+    () =>
+      typeof window !== "undefined" && new URLSearchParams(window.location.search).has("demo"),
+    [],
+  );
+
+  useEffect(() => {
+    if (!demo || bricks.length > 0) return;
+    const sample = sampleBuild(pool);
+    if (sample.length > 0) {
+      setBricks(sample);
+      setBuildName("Sample build");
+      setKernel({ status: "verified", used: sample.length, available: buildable });
+    }
+  }, [demo, pool, bricks.length, buildable]);
+
   function handleEvent(event: ChatEvent): void {
     if (event.type === "kernel") {
       setKernel({
@@ -69,7 +92,7 @@ export default function Page() {
 
       <div className="min-h-0 flex flex-1">
         <div className="flex min-w-0 flex-1 flex-col">
-          <BuildCanvas bricks={bricks} name={buildName} />
+          <BuildCanvas bricks={bricks} pool={pool} name={buildName} />
           <KernelStrip
             state={{ ...kernel, available: kernel.status === "idle" ? buildable : kernel.available }}
             available={buildable}
