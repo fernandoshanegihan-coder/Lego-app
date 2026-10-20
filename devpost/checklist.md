@@ -204,6 +204,15 @@ Activity mode: [live app and editor, explicit static fallback, focused alternati
   demo hook instead assembles a small legal build FROM THE USER'S OWN COLLECTION
   (`lib/sampleBuild.ts`), so it can never show a brick the user doesn't have — the same rule the
   product makes everywhere else. It is also a deterministic shot for the demo video.
+- **An external client driving the app was built, then removed at the learner's request.**
+  It worked end to end: the MCP server read the user's live collection from the local server,
+  Claude designed against it, the kernel validated it, and the design landed on the canvas
+  ("via MCP"). But it put claude.ai in the flow as the chat client, and the approved PRD says
+  exactly that: *"No claude.ai as the chat client. The chat lives on this page; the user never
+  leaves the site."* (`prd.md > States and Boundaries`, `scope.md > Decisions`). Reverted in
+  63ba83b, so the chat stays inside the app and the product keeps one front door.
+  The stdio MCP server itself still ships (`mcp/stdio.ts`, `.mcp.json`) and is still registerable
+  by a judge — it just no longer writes into the page.
 - **A dead provider no longer loses a good design.** The free tier's 503 could kill the request
   between `validate_build` (which passed) and `save_build`, throwing away a design the kernel had
   already accepted. The provider call is now caught per turn: the loop stops, the user gets one
