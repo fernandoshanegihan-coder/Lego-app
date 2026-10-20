@@ -5,6 +5,11 @@
 
 const BASE = "https://rebrickable.com/api/v3/lego";
 
+/** Paths are relative to BASE — except the `next` links, which are absolute. */
+function url(path: string): string {
+  return path.startsWith("http") ? path : `${BASE}${path}`;
+}
+
 /** Error codes the route maps into user-facing messages. */
 export type RebrickableError =
   | "no-such-set"
@@ -43,8 +48,7 @@ function throttle<T>(fn: () => Promise<T>): Promise<T> {
 }
 throttle.lastCall = 0;
 
-async function getJson<T>(path: string): Promise<T> {
-  const key = process.env.REBRICKABLE_API_KEY;
+async function getJson<T>(path: string): Promise<T> {  const key = process.env.REBRICKABLE_API_KEY;
   if (!key) {
     const e = new Error("REBRICKABLE_API_KEY is not set") as Error & {
       code: RebrickableError;
@@ -57,7 +61,7 @@ async function getJson<T>(path: string): Promise<T> {
 
   let res: Response;
   try {
-    res = await fetch(`${BASE}${path}`, {
+    res = await fetch(url(path), {
       headers: { Authorization: `key ${key}` },
       cache: "no-store",
     });
@@ -75,7 +79,7 @@ async function getJson<T>(path: string): Promise<T> {
     if (res.status === 429) {
       // One retry after a pause, per the spec's failure-mode table.
       await new Promise((r) => setTimeout(r, 2000));
-      res = await fetch(`${BASE}${path}`, {
+      res = await fetch(url(path), {
         headers: { Authorization: `key ${key}` },
         cache: "no-store",
       });
@@ -140,11 +144,36 @@ export async function getSet(setNum: string): Promise<RebrickableSet> {
   return getJsonThrottled<RebrickableSet>(`/sets/${setNum}/`);
 }
 
-export async function getSetParts(
-  setNum: string,
-): Promise<{ count: number; results: RebrickableInventoryItem[] }> {
-  // One call for the whole set, per the throttling note in the spec.
-  return getJsonThrottled(`/sets/${setNum}/parts/?page_size=1000`);
+export interface RebrickableInventoryPage {
+  count: number;
+  next: string | null;
+  previous: string | null;
+  results: RebrickableInventoryItem[];
+}
+
+/**
+ * Every inventory item of a set.
+ *
+ * The API paginates (1,000 per page), and a big set — the UCS Millennium
+ * Falcon is 7,541 parts — spans several pages. Fetching only the first page
+ * would understate the collection, so we follow `next` to the end. The shared
+ * throttle keeps this to about one request per second.
+ */
+export async function getSetParts(setNum: string): Promise<RebrickableInventoryPage> {
+  const results: RebrickableInventoryItem[] = [];
+  let count = 0;
+  let path: string | null = `/sets/${setNum}/parts/?page_size=1000`;
+  // Safety cap: a set with more than 30,000 inventory rows is not a brick set.
+  const maxPages = 30;
+
+  for (let page = 0; page < maxPages && path; page++) {
+    const data: RebrickableInventoryPage = await getJsonThrottled(path);
+    results.push(...data.results);
+    count = data.count;
+    path = data.next;
+  }
+
+  return { count, next: null, previous: null, results };
 }
 
 export interface PartCategory {
