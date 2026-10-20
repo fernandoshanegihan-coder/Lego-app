@@ -37,7 +37,10 @@ function loadInventory(path: string | undefined): StoredSet[] {
 async function main() {
   const path = process.argv[2] ?? process.env.BRICKBRAIN_INVENTORY;
   const sets = loadInventory(path);
-  const ctx: ToolContext = { pool: aggregate(sets), sets };
+  // The running app, when there is one: the MCP server reads the user's live
+  // collection from it and pushes finished designs onto its canvas.
+  const appUrl = process.env.BRICKBRAIN_APP_URL ?? "http://localhost:3000";
+  const ctx: ToolContext = { pool: aggregate(sets), sets, appUrl };
 
   const server = new McpServer({ name: "brickbrain", version: "0.1.0" });
   for (const tool of TOOLS) {
@@ -52,7 +55,8 @@ async function main() {
   await server.connect(transport);
   console.error(
     `[brickbrain] stdio MCP server ready — ${ctx.pool.size} part/colour combos` +
-      (path ? ` from ${path}` : " (no inventory file given)"),
+      (path ? ` from ${path}` : " (no inventory file given)") +
+      ` · app: ${appUrl}`,
   );
 }
 

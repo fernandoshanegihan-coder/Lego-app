@@ -182,6 +182,8 @@
       <tr><td>what a provider has to be able to do</td><td><span class="mono">lib/provider.ts</span></td><td>one contract: turn a system prompt, a history and tools into text, tool calls and tool results</td></tr>
       <tr><td>what the model is told</td><td><span class="mono">lib/gemini.ts</span> (systemPrompt)</td><td>the inventory block and the design rules live in one string</td></tr>
       <tr><td>the tools the model can call</td><td><span class="mono">mcp/tools.ts</span></td><td>the MCP server registers whatever is in <span class="mono">TOOLS</span> — both hosts, automatically</td></tr>
+      <tr><td>the rules a model designs by</td><td><span class="mono">lib/buildRules.ts</span></td><td>the in-app model and Claude in claude.ai get the same brief</td></tr>
+      <tr><td>how a design from Claude reaches the canvas</td><td><span class="mono">app/api/designs/route.ts</span>, <span class="mono">lib/localState.ts</span></td><td>the MCP server posts a validated design; the browser polls for it</td></tr>
       <tr><td>how a brick looks</td><td><span class="mono">scene/brickGeometry.ts</span></td><td>body, studs and slope faces are built here, cached per shape</td></tr>
       <tr><td>the wording of the promise</td><td><span class="mono">components/KernelStrip.tsx</span></td><td>the verified and violation states</td></tr>
     </table>

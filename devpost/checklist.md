@@ -208,7 +208,7 @@ Activity mode: [live app and editor, explicit static fallback, focused alternati
   between `validate_build` (which passed) and `save_build`, throwing away a design the kernel had
   already accepted. The provider call is now caught per turn: the loop stops, the user gets one
   honest line, and the three-strike fallback still delivers the validated build.
-- **Second provider: OpenRouter as a fallback.** The learner's request. The loop no longer speaks
+- **A second provider: OpenRouter as a fallback.** The learner's request. The loop no longer speaks
   Gemini's wire format: `lib/provider.ts` defines one contract (system prompt + history + tools →
   text, tool calls, tool results), `lib/gemini.ts` and `lib/openrouter.ts` each implement it, and
   the loop tries them in order. OpenRouter only exists if `OPENROUTER_API_KEY` is set, so with no
@@ -216,6 +216,15 @@ Activity mode: [live app and editor, explicit static fallback, focused alternati
   breaking: a `functionResponse` must be an object (not a string), and a `functionCall` must carry
   its `thought_signature` back on the next turn — both are now handled and covered by tests.
   An empty (degenerate) model turn is also treated as a failed attempt rather than an answer.
+- **The MCP server became a real client of the app** (the learner's request: "the user connects to
+  my plugin, adds their set number, and Claude designs it in my site"). claude.ai's custom
+  connectors accept a *local command* server, so no hosting, OAuth or accounts are needed.
+  `mcp/stdio.ts` now talks to the running app: it reads the user's live collection from
+  `GET /api/collection` and pushes a finished design to `POST /api/designs`, where the kernel
+  validates it a second time and the browser picks it up. A sixth tool, `get_build_brief`, gives
+  any client the inventory *and* the coordinate rules, so Claude designs by the same rules as the
+  in-app model (`lib/buildRules.ts` is shared). Verified end to end by `scripts/mcp-flow.ts`:
+  connect → brief → design → validate (ok) → save → the app holds it and the canvas shows it.
 
 Pending doc polish (ship stage): regenerate `scope.html` / `spec.html` from their Markdown so the rendered
 artifacts carry the provider note; README must credit Rebrickable and document `GEMINI_API_KEY`.

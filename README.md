@@ -91,6 +91,39 @@ results (`lib/provider.ts`).
 
 ---
 
+## Connect it to Claude (claude.ai or Claude Code)
+
+The same five tools ship as a **real MCP server**. Point a client at it and
+Claude can read the user's parts, design a build, and — because the design is
+checked by the same kernel — put it on the app's canvas.
+
+**From claude.ai** — *Settings → Connectors → Add connector → Local command*:
+
+| Field | Value |
+|---|---|
+| Name | `brickbrain` |
+| Command | `npx` |
+| Arguments | `tsx mcp/stdio.ts` |
+| Environment | `BRICKBRAIN_APP_URL=http://localhost:3000` |
+
+**From Claude Code** — `claude mcp add brickbrain -- npx tsx mcp/stdio.ts`
+(or commit the `.mcp.json` in this repo).
+
+Then, with the app running (`npm run dev`) and a set added:
+
+> "I own set 21328. What can I build from it?"
+> "Design me a small coffee shop from those parts."
+
+Claude calls `get_build_brief` (the parts and the coordinate rules), designs in
+grid coordinates, calls `validate_build` — the kernel, the same one the app
+uses — fixes whatever it is told is wrong, and calls `save_build`. The design
+lands on the canvas with the kernel strip green.
+
+`npx tsx scripts/mcp-flow.ts` runs exactly that sequence as a script, if you
+want to see the whole exchange without a Claude client in the loop.
+
+---
+
 ## Project map
 
 ```
@@ -100,8 +133,8 @@ app/
   page.tsx              the one page: toolbar + canvas + chat + kernel strip
 components/             ChatPanel · MessageList · IdeaCard · KernelStrip · BuildCanvas
 scene/                  brickGeometry (procedural LEGO) · BrickMesh · Scene
-lib/                    provider (the contract) · gemini · openrouter · loop (agent loop) · sse · storage · collection
-mcp/                    tools.ts (the five tools) · server.ts (in-process) · stdio.ts (for Claude Code)
+lib/                    provider (the contract) · gemini · openrouter · loop (agent loop) · sse · storage · collection · buildRules · localState
+mcp/                    tools.ts (the six tools) · server.ts (in-process) · stdio.ts (for Claude Code)
 parts/                  normalize (Rebrickable → buildable parts) · categories · shapes
 rebrickable/            the HTTP client (throttled to ~1 req/s) and its error mapping
 validate/               validateBuild.ts (THE KERNEL) · grid.ts · buildSchema.ts
@@ -115,9 +148,10 @@ devpost/                scope · prd · spec · checklist — the planning docum
 |---|---|
 | `list_my_parts` | the aggregated pool: part, name, w×d×h, colour id + name, quantity |
 | `get_set_parts` | a set's buildable parts from Rebrickable |
+| `get_build_brief` | the inventory **and** the coordinate rules, so any client can design legally |
 | `propose_ideas` | exactly three ideas, grounded in the inventory |
 | `validate_build` | **the kernel** — seven rules, violations as data |
-| `save_build` | submits a verified design to the canvas |
+| `save_build` | submits a verified design — to the canvas, and to the running app |
 
 The same functions are served by the in-process server the app uses and by
 `mcp/stdio.ts`, which a judge can register with Claude Code:
