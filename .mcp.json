@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "brickbrain": {
+      "command": "npx",
+      "args": ["tsx", "mcp/stdio.ts"],
+      "env": {
+        "BRICKBRAIN_INVENTORY": "./collection.json"
+      }
+    }
+  }
+}

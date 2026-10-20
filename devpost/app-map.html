@@ -1,0 +1,234 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Brickbrain — app map</title>
+<style>
+  :root {
+    --bench: #f5f1e8;
+    --panel: #fbf9f4;
+    --edge: #e2dccf;
+    --ink: #2a2620;
+    --dim: #7a7263;
+    --faint: #a49a88;
+    --accent: #ffd814;
+    --ok: #1c7a45;
+    --bad: #a81f16;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 2rem 1.25rem 4rem;
+    background: var(--bench);
+    color: var(--ink);
+    font: 16px/1.6 ui-sans-serif, system-ui, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  main { max-width: 860px; margin: 0 auto; }
+  h1 { font-size: 1.6rem; margin: 0 0 .25rem; letter-spacing: -.01em; }
+  h2 { font-size: 1.1rem; margin: 2.5rem 0 .75rem; }
+  h3 { font-size: .98rem; margin: 1.5rem 0 .4rem; }
+  p { margin: .5rem 0; }
+  .lede { color: var(--dim); max-width: 62ch; }
+  .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: .88em; }
+  code { background: #efe9dc; padding: .1em .35em; border-radius: 4px; }
+  .card { background: var(--panel); border: 1px solid var(--edge); border-radius: 12px; padding: 1rem 1.15rem; }
+  ol.stops { padding-left: 1.2rem; }
+  ol.stops > li { margin-bottom: 1.1rem; }
+  .path { display: block; color: var(--dim); }
+  .what { color: var(--ink); }
+  .result { color: var(--ok); }
+  figure { margin: 0; }
+  svg { width: 100%; height: auto; display: block; }
+  details { border: 1px solid var(--edge); border-radius: 10px; background: var(--panel); padding: .5rem .85rem; margin: .6rem 0; }
+  summary { cursor: pointer; font-weight: 600; }
+  table { width: 100%; border-collapse: collapse; margin: .5rem 0; font-size: .93rem; }
+  th, td { text-align: left; padding: .45rem .5rem; border-bottom: 1px solid var(--edge); vertical-align: top; }
+  th { color: var(--dim); font-weight: 600; }
+  .note { color: var(--faint); font-size: .88rem; }
+  a { color: var(--ink); }
+</style>
+</head>
+<body>
+<main>
+
+  <h1>Brickbrain — app map</h1>
+  <p class="lede">
+    You type in the LEGO sets you own. The app fetches their parts, asks a model for build ideas,
+    and then designs a 3D model <em>made only of the bricks you own</em>. The piece that makes that
+    promise true is the <strong>kernel</strong>: a pure validator that checks every proposed brick
+    against your collection and hands the model its own mistakes to fix.
+  </p>
+
+  <h2>The pieces</h2>
+  <div class="card">
+    <table>
+      <tr><th>Piece</th><th>What it does</th><th>Where</th></tr>
+      <tr><td>Toolbar + collection</td><td>Adds a set number, fetches its parts, keeps the ones the renderer can draw, remembers them in the browser.</td><td><span class="mono">app/api/sets/route.ts</span>, <span class="mono">lib/storage.ts</span></td></tr>
+      <tr><td>Chat + tools</td><td>Your conversation. The model calls five tools through a real MCP server built per request.</td><td><span class="mono">app/api/chat/route.ts</span>, <span class="mono">mcp/</span></td></tr>
+      <tr><td>The kernel</td><td>Seven rules on an integer grid. Returns violations as data so the model can fix itself.</td><td><span class="mono">validate/validateBuild.ts</span></td></tr>
+      <tr><td>Renderer</td><td>Procedural LEGO: rounded bodies, real studs, angled slope faces. No assets.</td><td><span class="mono">scene/</span></td></tr>
+      <tr><td>Kernel strip</td><td>The promise, made visible: red with the exact complaint, then green.</td><td><span class="mono">components/KernelStrip.tsx</span></td></tr>
+    </table>
+  </div>
+
+  <h2>One action, end to end</h2>
+  <figure class="card">
+    <svg viewBox="0 0 900 300" role="img" aria-label="Diagram: the browser asks the chat route for ideas; the route builds an MCP server for that request, calls Gemini, sends the model the inventory, and the model calls the tools, including validate_build, which runs the kernel. Events stream back to the browser as text, ideas, kernel and build events, landing in the chat, the kernel strip and the 3D canvas. The collection is stored in the browser's localStorage.">
+      <defs>
+        <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+          <path d="M0 0 L10 5 L0 10 z" fill="#7a7263" />
+        </marker>
+      </defs>
+      <g font-family="ui-sans-serif, system-ui, sans-serif" font-size="12" fill="#2a2620">
+        <rect x="10" y="30" width="150" height="70" rx="10" fill="#fbf9f4" stroke="#e2dccf" />
+        <text x="24" y="58" font-weight="600">Browser</text>
+        <text x="24" y="78" fill="#7a7263">chat · canvas · strip</text>
+
+        <rect x="220" y="30" width="170" height="70" rx="10" fill="#fbf9f4" stroke="#e2dccf" />
+        <text x="234" y="58" font-weight="600">/api/chat</text>
+        <text x="234" y="78" fill="#7a7263">MCP server per request</text>
+
+        <rect x="450" y="30" width="170" height="70" rx="10" fill="#fbf9f4" stroke="#e2dccf" />
+        <text x="464" y="58" font-weight="600">Gemini (free tier)</text>
+        <text x="464" y="78" fill="#7a7263">model · tool calls</text>
+
+        <rect x="680" y="30" width="200" height="70" rx="10" fill="#fbf9f4" stroke="#e2dccf" />
+        <text x="694" y="58" font-weight="600">Rebrickable API</text>
+        <text x="694" y="78" fill="#7a7263">sets · parts · colours</text>
+
+        <rect x="300" y="170" width="200" height="80" rx="10" fill="#e4f3ea" stroke="#1c7a45" />
+        <text x="316" y="198" font-weight="600" fill="#1c7a45">The kernel</text>
+        <text x="316" y="218" fill="#1c7a45">validate_build</text>
+        <text x="316" y="236" fill="#1c7a45">7 rules → violations as data</text>
+
+        <rect x="10" y="170" width="190" height="80" rx="10" fill="#fbf9f4" stroke="#e2dccf" />
+        <text x="24" y="198" font-weight="600">localStorage</text>
+        <text x="24" y="218" fill="#7a7263">your collection</text>
+        <text x="24" y="236" fill="#7a7263">never leaves the browser</text>
+
+        <g stroke="#7a7263" fill="none" marker-end="url(#arrow)">
+          <path d="M160 65 H214" />
+          <path d="M390 65 H444" />
+          <path d="M620 65 H674" />
+          <path d="M305 165 V120 H360 V104" />
+          <path d="M160 190 H106 V104" />
+          <path d="M500 104 V160" />
+        </g>
+        <g font-size="11" fill="#7a7263">
+          <text x="168" y="58">POST</text>
+          <text x="398" y="58">stream</text>
+          <text x="626" y="58">fetch</text>
+          <text x="512" y="140">violations</text>
+          <text x="300" y="132">validated</text>
+        </g>
+      </g>
+    </svg>
+  </figure>
+
+  <h2>Reference route — three stops</h2>
+  <p class="note">
+    A route through the finished code, anchored on real symbols. Use it to find where a change belongs.
+  </p>
+  <ol class="stops">
+    <li>
+      <strong>Add a set and see the collection grow.</strong>
+      <span class="path mono">components/SetField.tsx → app/api/sets/route.ts → rebrickable/fetchSetNormalized.ts → parts/normalize.ts</span>
+      <span class="what">
+        The field posts a set number; the route normalizes it, asks Rebrickable for the set and its
+        parts, and <span class="mono">normalizeSet</span> keeps only parts whose category the renderer
+        can draw <em>and</em> whose name parses into a real footprint. Everything else is dropped here,
+        which is why it can never be claimed later.
+      </span>
+      <span class="result">You see: the set's name, the box part count, the buildable count, and the kernel denominator.</span>
+    </li>
+    <li>
+      <strong>Ask for ideas and click one.</strong>
+      <span class="path mono">components/ChatPanel.tsx → app/api/chat/route.ts → mcp/server.ts → mcp/tools.ts → lib/loop.ts</span>
+      <span class="what">
+        The route builds an <span class="mono">McpServer</span> over an in-memory transport, bound to
+        this request's inventory, and the agent loop talks to it through
+        <span class="mono">callTool</span> only. <span class="mono">propose_ideas</span> is what puts
+        three clickable cards in the chat.
+      </span>
+      <span class="result">You see: three idea cards; clicking one sends its title back as your next message.</span>
+    </li>
+    <li>
+      <strong>Watch the kernel judge a design.</strong>
+      <span class="path mono">validate/validateBuild.ts (validateBuild) → lib/loop.ts (applyDropRule) → components/KernelStrip.tsx</span>
+      <span class="what">
+        <span class="mono">validateBuild</span> is pure: no I/O, no model, no React. It returns
+        violations as data, the loop feeds them back to the model, and if the model never converges
+        <span class="mono">applyDropRule</span> drops the offending bricks — cascading, because
+        removing a support orphans what it carried.
+      </span>
+      <span class="result">You see: the strip turn red with the exact complaint, then green with the used / buildable count.</span>
+    </li>
+  </ol>
+
+  <h2>To change this, start here</h2>
+  <div class="card">
+    <table>
+      <tr><th>To change…</th><th>Start at</th><th>Because</th></tr>
+      <tr><td>which parts may enter the collection</td><td><span class="mono">parts/categories.ts</span></td><td>one allowlist of category names; a part outside it can never be claimed or drawn</td></tr>
+      <tr><td>how a part's size is read from its name</td><td><span class="mono">parts/normalize.ts</span> (parseDimensions)</td><td>one parser decides the w×d footprint</td></tr>
+      <tr><td>the rules a design must pass</td><td><span class="mono">validate/validateBuild.ts</span></td><td>the seven rules, in order, in one pure function</td></tr>
+      <tr><td>the model, or the fallback when the free tier is busy</td><td><span class="mono">lib/gemini.ts</span> (MODEL_CHAIN)</td><td>the chain is walked in order; 503 means "try the next"</td></tr>
+      <tr><td>what the model is told</td><td><span class="mono">lib/gemini.ts</span> (systemPrompt)</td><td>the inventory block and the design rules live in one string</td></tr>
+      <tr><td>the tools the model can call</td><td><span class="mono">mcp/tools.ts</span></td><td>the MCP server registers whatever is in <span class="mono">TOOLS</span> — both hosts, automatically</td></tr>
+      <tr><td>how a brick looks</td><td><span class="mono">scene/brickGeometry.ts</span></td><td>body, studs and slope faces are built here, cached per shape</td></tr>
+      <tr><td>the wording of the promise</td><td><span class="mono">components/KernelStrip.tsx</span></td><td>the verified and violation states</td></tr>
+    </table>
+  </div>
+
+  <h2>A practice to reuse</h2>
+  <div class="card">
+    <p>
+      <strong>Check the model's output with a pure function, and return the mistakes as data.</strong>
+    </p>
+    <p>
+      The temptation with a model is to trust it and debug the prose when it is wrong. Here the model
+      is treated as untrusted input: <span class="mono">validate/validateBuild.ts</span> decides legality
+      in one pure function with no I/O, and the agent loop hands its findings back as tool results
+      instead of exceptions — because a thrown error would end the conversation, while a returned
+      violation lets the model correct itself. The evidence is
+      <span class="mono">validate/validateBuild.test.ts</span> (one test per rule) and
+      <span class="mono">scripts/kernel-evidence.ts</span>, which prints the two turns a model sees
+      when it gets a design wrong.
+    </p>
+    <p>
+      The same shape works anywhere a model writes code, queries, or a plan: write the check as a pure
+      function that returns violations, feed them back, and let the caller decide what to do with an
+      answer that is still wrong.
+    </p>
+  </div>
+
+  <h2>Run it again</h2>
+  <div class="card">
+    <p class="mono">npm install &nbsp;→&nbsp; cp .env.example .env.local &nbsp;→&nbsp; paste the two keys &nbsp;→&nbsp; npm run dev</p>
+    <p>
+      <span class="mono">npm test</span> runs the kernel, the three-strike rule, the storage failure
+      path and the agent loop. <span class="mono">npx tsx scripts/kernel-evidence.ts</span> prints the
+      recorded self-correction transcript.
+    </p>
+    <p class="note">
+      This map describes the code as of commit <span class="mono">94b93da</span> (“Refinement path and
+      failure states across the journey”). It is a snapshot, not a live index — if the code moves on,
+      the map can drift.
+    </p>
+  </div>
+
+  <details>
+    <summary>Where the data comes from</summary>
+    <p>
+      Part, set and colour data comes from the
+      <a href="https://rebrickable.com/">Rebrickable API</a> (free, credited as their terms require).
+      The model provider is Google's Gemini API on its free tier. Your collection is stored only in
+      your browser's <span class="mono">localStorage</span> and is sent to the server with each chat
+      request; the server keeps none of it.
+    </p>
+  </details>
+
+</main>
+</body>
+</html>
