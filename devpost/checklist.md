@@ -141,17 +141,37 @@ Build mode: fast — chosen at first session (learner is agent-experienced and d
 
 - [ ] Early usable behavior explored — after slice 4: toolbar + collection + a working chat with idea cards;
       feedback on idea quality, card feel, and greeting copy while only slices 6–7 remain.
+      *Status: the learner used the app hands-on during the build (added sets, asked for ideas, clicked
+      one). Formal feedback on idea quality / card feel / greeting copy has not been collected yet.*
 - [ ] Final kick-the-tires exploration and feedback completed — full core journey plus awkward inputs, after slice 7.
+      *Status: the mechanical kick-the-tires pass is done (below); the learner's feedback is pending.*
 
 ## Final Review
 
 - [ ] Final review complete — feedback resolved and learner confirms ready to ship
+
+*Mechanical review, after slice 7 (learner feedback still to come):*
+- `npm test` → 43 tests green; `npx tsc --noEmit` clean; `npm run build` succeeds.
+- Core journey re-run through the real UI: add a set → ask → three idea cards → click one → model designs
+  in grid coordinates → kernel red with the specific complaint → model self-corrects → green → build
+  renders in 3D (studs, bevels, shadows) → "make it taller" edits the design on the canvas.
+- Failure states: bad set number (client and server), nonexistent set, bad model key, free-tier 503,
+  timeout, empty design, storage refusal — each degrades to one honest line, page intact.
+- Two defects found and fixed in the review: the client fetched only the first page of a set's parts
+  (the kernel's denominator was wrong for big sets), and the camera aimed at absolute coordinates while
+  the bricks were drawn relative to the origin.
 
 ## Code Tour and App Map
 
 - [ ] Learning activity complete — guided route, focused alternative, prior practice connected, or brief recap
 - [ ] Optional edit and transfer reflection addressed — offered/declined/already covered/not applicable as appropriate
 - [ ] `devpost/app-map.html` generated from finished code, checked, and shown, including a project-grounded practice to reuse
+
+*Status: the app map is generated and checked (served standalone, no network dependencies, verified in a
+browser: 6 sections, 3 stops, an SVG of one real action, "to change this, start here" pointers, and a
+practice to reuse grounded in the kernel's evidence). The learning activity with the learner is pending —
+it is anchored to their stated goal (understanding MCP): the project now has a real MCP server in two
+hosts, the in-process one the app uses and `mcp/stdio.ts` that a judge can register.*
 
 Activity and evidence: [what actually happened; real document/test/code references; unfinished work if interrupted]
 Route and stops: [actual paths and symbols; guided stops completed, or reference-only route]
