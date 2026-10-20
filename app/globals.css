@@ -1,0 +1,38 @@
+@import "tailwindcss";
+
+/*
+  Brickbrain palette — `spec.md > Look and Feel`.
+  "The workbench in daylight": warm off-white, LEGO colours doing all the work.
+*/
+:root {
+  --bench: #f5f1e8;
+  --canvas: #ebe5d8;
+  --panel: #fbf9f4;
+  --edge: #e2dccf;
+  --ink: #2a2620;
+  --dim: #7a7263;
+  --faint: #a49a88;
+  --accent: #ffd814;
+  --ok: #1c7a45;
+  --ok-bg: #e4f3ea;
+  --bad: #a81f16;
+  --bad-bg: #fbe9e7;
+}
+
+html {
+  height: 100%;
+}
+
+body {
+  background: var(--bench);
+  color: var(--ink);
+  font-family: var(--font-sans), "Space Grotesk", system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* Part numbers and the brick counter read like an instrument. */
+.font-mono-brick {
+  font-family: var(--font-mono), "JetBrains Mono", ui-monospace, monospace;
+}

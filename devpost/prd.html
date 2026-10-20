@@ -1,0 +1,452 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Brickbrain — Product Requirements</title>
+<style>
+  :root{
+    --bench:#f5f1e8; --canvas:#ebe5d8; --panel:#fbf9f4; --edge:#e2dccf;
+    --ink:#2a2620; --dim:#7a7263; --faint:#a49a88;
+    --accent:#ffd814; --accent-ink:#8a7400;
+    --ok-text:#1c7a45; --ok-bg:#e4f3ea;
+    --bad-text:#a81f16; --bad-bg:#fbe9e7;
+    --sans:"Space Grotesk",-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,sans-serif;
+    --mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bench);color:var(--ink);font:16px/1.65 var(--sans);-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1120px;margin:0 auto;padding:0 24px 96px}
+
+  header{padding:52px 0 32px;border-bottom:1px solid var(--edge)}
+  .eyebrow{font:600 11.5px/1 var(--mono);letter-spacing:.16em;text-transform:uppercase;color:var(--accent-ink)}
+  h1{font-size:clamp(32px,5.5vw,52px);line-height:1.05;margin:16px 0 10px;letter-spacing:-.025em}
+  .tagline{font-size:18.5px;color:var(--dim);max-width:66ch;margin:0 0 20px}
+  .badges{display:flex;flex-wrap:wrap;gap:8px}
+  .badge{font:600 11px/1 var(--mono);letter-spacing:.08em;text-transform:uppercase;padding:7px 11px;border-radius:999px;border:1px solid var(--edge);background:var(--panel);color:var(--dim)}
+  .badge.draft{border-color:#e0d49a;background:#fdf6dc;color:#7a6600}
+
+  section{margin:0 0 52px}
+  h2{font:600 12.5px/1 var(--mono);letter-spacing:.15em;text-transform:uppercase;color:var(--faint);margin:0 0 18px;display:flex;align-items:center;gap:12px}
+  h2::after{content:"";flex:1;height:1px;background:var(--edge)}
+  h3{font-size:19px;margin:0 0 12px;letter-spacing:-.01em}
+  p{margin:0 0 13px;max-width:76ch;color:var(--dim)}
+  strong{color:var(--ink);font-weight:600}
+
+  /* ---- journey ---- */
+  .stepper{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:14px}
+  .stepper button{font:600 12px var(--mono);padding:8px 12px;border-radius:7px;cursor:pointer;background:var(--panel);border:1px solid var(--edge);color:var(--dim);transition:.14s}
+  .stepper button:hover{border-color:#cdc4b0;color:var(--ink)}
+  .stepper button[aria-pressed=true]{background:var(--ink);border-color:var(--ink);color:#fff}
+  .step-body{background:var(--panel);border:1px solid var(--edge);border-radius:12px;padding:20px 22px;min-height:96px;box-shadow:0 1px 2px rgba(42,38,32,.04)}
+  .step-body .n{font:700 11px var(--mono);letter-spacing:.13em;text-transform:uppercase;color:var(--accent-ink);display:block;margin-bottom:9px}
+  .step-body p{margin:0}
+  .step-body p b{color:var(--ink)}
+
+  figure{margin:0;background:var(--panel);border:1px solid var(--edge);border-radius:14px;padding:22px 18px 12px;overflow-x:auto;box-shadow:0 1px 2px rgba(42,38,32,.04)}
+  figcaption{font:12px/1.5 var(--mono);color:var(--faint);padding:10px 6px 8px}
+  svg{display:block;width:100%;height:auto;min-width:720px}
+  .bx{fill:#fffdf8;stroke:var(--edge);stroke-width:1.5}
+  .bx-hi{fill:#fdf6dc;stroke:var(--accent);stroke-width:2}
+  .bx-k{fill:#e4f3ea;stroke:#7fbb99;stroke-width:1.5}
+  .t{fill:var(--ink);font:600 13.5px var(--sans)}
+  .t-s{fill:var(--dim);font:400 11.5px var(--sans)}
+  .t-m{fill:var(--faint);font:600 10.5px var(--mono);letter-spacing:.1em}
+  .t-k{fill:var(--ok-text);font:700 11px var(--mono);letter-spacing:.1em}
+  .ln{stroke:#c3b9a4;stroke-width:1.5;fill:none}
+  .ln-hi{stroke:var(--accent-ink);stroke-width:2;fill:none}
+  .lbl{fill:var(--faint);font:11px var(--mono)}
+
+  /* ---- app mock ---- */
+  .mock{background:var(--panel);border:1px solid var(--edge);border-radius:14px;overflow:hidden;box-shadow:0 10px 30px -18px rgba(42,38,32,.28)}
+  .mock-bar{display:flex;align-items:center;gap:14px;padding:11px 14px;border-bottom:1px solid var(--edge);background:#fffdf8;flex-wrap:wrap}
+  .mock-logo{font:700 15px var(--sans);letter-spacing:-.02em}
+  .mock-field{flex:1;min-width:230px;border:1px solid var(--edge);background:var(--bench);border-radius:8px;padding:7px 11px;display:flex;gap:9px;align-items:center}
+  .mock-field .lab{font:600 10px var(--mono);letter-spacing:.09em;text-transform:uppercase;color:var(--faint);white-space:nowrap}
+  .mock-field .val{font:600 13px var(--mono);color:var(--ink)}
+  .mock-coll{font:12.5px var(--mono);color:var(--dim);white-space:nowrap}
+  .mock-body{display:grid;grid-template-columns:1fr 320px;gap:0}
+  .mock-canvas{background:var(--canvas);position:relative;min-height:330px;border-right:1px solid var(--edge);display:flex;align-items:center;justify-content:center;overflow:hidden}
+  .mock-grid{position:absolute;inset:0;background-image:linear-gradient(rgba(42,38,32,.05) 1px,transparent 1px),linear-gradient(90deg,rgba(42,38,32,.05) 1px,transparent 1px);background-size:22px 22px}
+  .model{position:relative;display:flex;flex-direction:column-reverse;align-items:center;gap:2px}
+  .row{display:flex;gap:2px;justify-content:center}
+  .brick{width:22px;height:12px;border-radius:2px;box-shadow:inset 0 -2px 0 rgba(0,0,0,.16),inset 0 2px 0 rgba(255,255,255,.22)}
+  .brick.tall{height:22px}
+  .brick.w{width:44px}
+  .brick.ww{width:66px}
+  .mock-kernel{position:absolute;left:12px;right:12px;bottom:12px;background:rgba(255,253,248,.94);border:1px solid var(--edge);border-radius:9px;padding:9px 13px;display:flex;align-items:center;gap:10px;font:12.5px var(--mono);color:var(--dim);box-shadow:0 2px 8px rgba(42,38,32,.07)}
+  .dot{width:8px;height:8px;border-radius:50%;background:var(--ok-text);flex:none}
+  .mock-kernel .cnt{margin-left:auto;color:var(--ink);font-weight:700}
+  .mock-chat{border-right:0;display:flex;flex-direction:column;background:var(--panel);min-height:330px}
+  .chat-scroll{flex:1;padding:16px 15px;display:flex;flex-direction:column;gap:12px}
+  .msg{font-size:13.5px;line-height:1.55;color:var(--dim)}
+  .msg b{color:var(--ink)}
+  .msg.user{border-left:3px solid var(--accent);padding-left:11px;color:var(--ink)}
+  .ideas{display:flex;flex-direction:column;gap:7px;margin-top:2px}
+  .idea{background:#fffdf8;border:1px solid var(--edge);border-left:3px solid transparent;border-radius:8px;padding:9px 11px;transition:.14s}
+  .idea:hover{border-left-color:var(--accent);transform:translateY(-1px);box-shadow:0 3px 10px -4px rgba(42,38,32,.22)}
+  .idea .t1{font:600 13.5px var(--sans);color:var(--ink)}
+  .idea .t2{font-size:12px;color:var(--dim);line-height:1.45;margin-top:2px}
+  .chat-input{border-top:1px solid var(--edge);padding:11px 14px;font:13px var(--mono);color:var(--faint);background:#fffdf8}
+
+  /* ---- palette ---- */
+  .sw{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+  .sw .item{border:1px solid var(--edge);border-radius:10px;overflow:hidden;background:var(--panel)}
+  .sw .chip{height:54px}
+  .sw .lab{padding:8px 11px;font:11.5px var(--mono);color:var(--dim);line-height:1.5}
+  .sw .lab b{display:block;color:var(--ink);font-weight:700;letter-spacing:.03em}
+
+  .specimen{background:var(--panel);border:1px solid var(--edge);border-radius:12px;padding:22px 24px;margin-top:12px}
+  .specimen .big{font:600 34px var(--sans);letter-spacing:-.02em;margin:0 0 4px}
+  .specimen .sub{font:400 15px var(--sans);color:var(--dim);margin:0 0 16px}
+  .specimen .mono{font:700 22px var(--mono);margin:0}
+
+  /* ---- states ---- */
+  .grid{display:grid;gap:11px}
+  .g2{grid-template-columns:repeat(auto-fit,minmax(300px,1fr))}
+  .g3{grid-template-columns:repeat(auto-fit,minmax(232px,1fr))}
+  .card{background:var(--panel);border:1px solid var(--edge);border-radius:11px;padding:16px 18px}
+  .card h4{margin:0 0 7px;font-size:14.5px}
+  .card p{margin:0;font-size:13.5px;line-height:1.55}
+  .card .st{font:700 10px var(--mono);letter-spacing:.1em;text-transform:uppercase;display:block;margin-bottom:7px}
+  .st.ok{color:var(--ok-text)} .st.bad{color:var(--bad-text)} .st.warn{color:var(--accent-ink)}
+
+  /* ---- reveals ---- */
+  details{background:var(--panel);border:1px solid var(--edge);border-radius:11px;margin-bottom:9px;overflow:hidden}
+  details[open]{border-color:#cdc4b0}
+  summary{cursor:pointer;list-style:none;padding:15px 19px;font-weight:600;font-size:15px;display:flex;align-items:center;gap:11px;user-select:none}
+  summary::-webkit-details-marker{display:none}
+  summary::before{content:"+";font:700 15px var(--mono);color:var(--accent-ink);width:12px}
+  details[open] summary::before{content:"–"}
+  summary:hover{background:#fffdf8}
+  .rbody{padding:0 19px 16px 43px}
+  .rbody p{margin:0 0 11px;font-size:14px}
+  .rbody ul{margin:0;padding-left:17px}
+  .rbody li{margin-bottom:7px;font-size:14px;color:var(--dim)}
+  .rbody li b{color:var(--ink)}
+  .crit{list-style:none;padding:0;margin:10px 0 0}
+  .crit li{position:relative;padding-left:26px;margin-bottom:8px;font-size:13.5px;color:var(--dim)}
+  .crit li::before{content:"☐";position:absolute;left:0;top:-1px;font-size:15px;color:var(--accent-ink)}
+  .crit li b{color:var(--ink)}
+
+  table{width:100%;border-collapse:collapse;font-size:14px}
+  th{text-align:left;font:600 10.5px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--faint);padding:0 14px 9px 0;border-bottom:1px solid var(--edge)}
+  td{padding:11px 14px 11px 0;border-bottom:1px solid var(--edge);vertical-align:top;color:var(--dim)}
+  td b{color:var(--ink)}
+  code{font:12.5px var(--mono);background:#f1ece0;border:1px solid var(--edge);padding:1.5px 5px;border-radius:5px;color:#5c4b1e}
+  .note{font-size:13px;color:var(--faint);font-style:italic}
+  footer{border-top:1px solid var(--edge);padding-top:22px;font:12.5px/1.7 var(--mono);color:var(--faint)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <div class="eyebrow">Build With AI: Basics &nbsp;·&nbsp; Product Requirements</div>
+  <h1>Brickbrain</h1>
+  <p class="tagline">A creative student enters the set numbers of the LEGO sets they own, and Claude designs a build they can actually make — rendered in 3D, using only the exact bricks in their collection.</p>
+  <div class="badges">
+    <span class="badge draft">Status · approved</span>
+    <span class="badge">One page · two surfaces</span>
+    <span class="badge">3 ideas · text only</span>
+    <span class="badge">No sign-ups</span>
+    <span class="badge">prd.md is canonical</span>
+  </div>
+</header>
+
+<section>
+  <h2>The core journey</h2>
+  <div class="stepper" id="stepper" role="group" aria-label="Core journey steps"></div>
+  <div class="step-body" id="stepBody"></div>
+  <figure style="margin-top:16px">
+    <svg viewBox="0 0 1040 300" role="img" aria-label="Eight step journey from arrival to success">
+      <!-- row 1 -->
+      <rect class="bx" x="20"  y="36" width="220" height="62" rx="10"/>
+      <text class="t-m" x="36" y="58">STEP 1 · ARRIVE</text><text class="t" x="36" y="80">Empty canvas + greeting</text>
+      <rect class="bx" x="270" y="36" width="220" height="62" rx="10"/>
+      <text class="t-m" x="286" y="58">STEP 2 · ADD A SET</text><text class="t" x="286" y="80">Parts fetched + stored</text>
+      <rect class="bx-hi" x="520" y="36" width="220" height="62" rx="10"/>
+      <text class="t-m" x="536" y="58">STEP 3 · ASK</text><text class="t" x="536" y="80">“What can I build?”</text>
+      <rect class="bx" x="770" y="36" width="220" height="62" rx="10"/>
+      <text class="t-m" x="786" y="58">STEP 4 · PICK</text><text class="t" x="786" y="80">Choose one of three</text>
+      <!-- row 2 -->
+      <rect class="bx" x="770" y="158" width="220" height="62" rx="10"/>
+      <text class="t-m" x="786" y="180">STEP 5 · DESIGN</text><text class="t" x="786" y="202">Claude composes it</text>
+      <rect class="bx" x="520" y="158" width="220" height="62" rx="10"/>
+      <text class="t-m" x="536" y="180">STEP 6 · SEE IT</text><text class="t" x="536" y="202">Bricks appear in 3D</text>
+      <rect class="bx" x="270" y="158" width="220" height="62" rx="10"/>
+      <text class="t-m" x="286" y="180">STEP 7 · REFINE</text><text class="t" x="286" y="202">“Make it taller”</text>
+      <rect class="bx-k" x="20" y="158" width="220" height="62" rx="10"/>
+      <text class="t-m" x="36" y="180">STEP 8 · SUCCESS</text><text class="t" x="36" y="202">Only bricks you own</text>
+      <!-- arrows row1 -->
+      <path class="ln" d="M240 67 H264"/><path class="ln" d="M258 61 L266 67 L258 73"/>
+      <path class="ln-hi" d="M490 67 H514"/><path class="ln-hi" d="M508 61 L516 67 L508 73"/>
+      <path class="ln" d="M740 67 H764"/><path class="ln" d="M758 61 L766 67 L758 73"/>
+      <!-- wrap -->
+      <path class="ln" d="M880 98 V130 H630 V152"/><path class="ln" d="M624 144 L630 154 L636 144"/>
+      <!-- arrows row2 (right to left) -->
+      <path class="ln" d="M770 189 H746"/><path class="ln" d="M752 183 L744 189 L752 195"/>
+      <path class="ln-hi" d="M520 189 H496"/><path class="ln-hi" d="M502 183 L494 189 L502 195"/>
+      <path class="ln" d="M270 189 H246"/><path class="ln" d="M252 183 L244 189 L252 195"/>
+      <!-- kernel band -->
+      <rect class="bx-k" x="20" y="250" width="970" height="38" rx="9"/>
+      <text class="t-k" x="36" y="274">THE KERNEL RUNS UNDER EVERY STEP · EVERY BRICK CHECKED AGAINST YOUR INVENTORY</text>
+    </svg>
+    <figcaption>Fig. 1 — Eight steps, two surfaces, one page. The kernel band is not a step; it is the condition every step is subject to.</figcaption>
+  </figure>
+</section>
+
+<section>
+  <h2>Screens and layout</h2>
+  <p>One page, two surfaces, no navigation. The mock below is rendered in the product's own palette.</p>
+  <div class="mock">
+    <div class="mock-bar">
+      <div class="mock-logo">Brickbrain</div>
+      <div class="mock-field"><span class="lab">Add a set</span><span class="val">21328 — Lego Ideas (1,234 parts)</span></div>
+      <div class="mock-coll">Your sets: 3 · 1,904 parts</div>
+    </div>
+    <div class="mock-body">
+      <div class="mock-canvas">
+        <div class="mock-grid"></div>
+        <div class="model">
+          <div class="row"><div class="brick w" style="background:#c4281c"></div><div class="brick w" style="background:#f2cd37"></div><div class="brick w" style="background:#237841"></div></div>
+          <div class="row"><div class="brick w" style="background:#0055bf"></div><div class="brick w" style="background:#c4281c"></div><div class="brick w" style="background:#f2cd37"></div></div>
+          <div class="row"><div class="brick w" style="background:#f2cd37"></div><div class="brick w" style="background:#237841"></div><div class="brick w" style="background:#0055bf"></div></div>
+          <div class="row"><div class="brick ww" style="background:#c4281c"></div><div class="brick ww" style="background:#0055bf"></div></div>
+        </div>
+        <div class="mock-kernel"><span class="dot"></span><span>every brick verified against your inventory</span><span class="cnt">47 / 312</span></div>
+      </div>
+      <div class="mock-chat">
+        <div class="chat-scroll">
+          <div class="msg"><b>Enter a set number to get started.</b><br>Tell Brickbrain which sets you own, and it will design a build using only the bricks you actually have.</div>
+          <div class="msg user">what can I build with these?</div>
+          <div class="msg">Three ideas from your parts:</div>
+          <div class="ideas">
+            <div class="idea"><div class="t1">A small go-kart</div><div class="t2">Uses your 2×4 chassis bricks and the red slopes.</div></div>
+            <div class="idea"><div class="t1">A little house</div><div class="t2">White bricks plus the tan plates you have.</div></div>
+            <div class="idea"><div class="t1">A duck on wheels</div><div class="t2">Yellow bricks and your four wheels.</div></div>
+          </div>
+        </div>
+        <div class="chat-input">type a message…</div>
+      </div>
+    </div>
+  </div>
+  <p class="note" style="margin-top:12px">Assumption: the set field and the collection summary share one slim toolbar above the canvas. The learner specified a dedicated field but not its placement.</p>
+</section>
+
+<section>
+  <h2>Look and feel</h2>
+  <p><strong>“The workbench in daylight.”</strong> Warm off-white, LEGO colours doing all the work.</p>
+  <div class="sw">
+    <div class="item"><div class="chip" style="background:#f5f1e8"></div><div class="lab"><b>Bench</b>#f5f1e8</div></div>
+    <div class="item"><div class="chip" style="background:#ebe5d8"></div><div class="lab"><b>Canvas</b>#ebe5d8</div></div>
+    <div class="item"><div class="chip" style="background:#fbf9f4"></div><div class="lab"><b>Panel</b>#fbf9f4</div></div>
+    <div class="item"><div class="chip" style="background:#2a2620"></div><div class="lab"><b>Ink</b>#2a2620</div></div>
+    <div class="item"><div class="chip" style="background:#ffd814"></div><div class="lab"><b>Accent</b>#ffd814 · graphic only</div></div>
+    <div class="item"><div class="chip" style="background:#e4f3ea;border-bottom:1px solid #7fbb99"></div><div class="lab"><b>Verified</b>#1c7a45 on #e4f3ea</div></div>
+    <div class="item"><div class="chip" style="background:#fbe9e7;border-bottom:1px solid #d9a49f"></div><div class="lab"><b>Violation</b>#a81f16 on #fbe9e7</div></div>
+  </div>
+  <div class="specimen">
+    <div class="big">Space Grotesk</div>
+    <div class="sub">Interface, headings, chat, and idea titles.</div>
+    <div class="mono">47 / 312</div>
+    <div class="sub" style="margin:8px 0 0">JetBrains Mono — part numbers and the brick counter, so the count reads like an instrument.</div>
+  </div>
+</section>
+
+<section>
+  <h2>Features and behavior</h2>
+
+  <details open>
+    <summary>Adding a set</summary>
+    <div class="rbody">
+      <p>A dedicated field, so the app always knows that text is a set number and never a message. The app fetches the set's parts from Rebrickable, adds them to the collection, and confirms in the field with the set's name and part count.</p>
+      <ul class="crit">
+        <li>Entering a valid set number shows its <b>name and part count</b> in the field, and the collection total rises</li>
+        <li>The collection summary shows the <b>number of sets and total parts</b></li>
+        <li>Adding a set already in the collection <b>does not</b> increase the total</li>
+        <li>The set's parts are <b>available to Claude on the next message</b></li>
+      </ul>
+    </div>
+  </details>
+
+  <details>
+    <summary>Asking for ideas</summary>
+    <div class="rbody">
+      <p>Exactly <b>three</b> ideas, grounded in the parts actually in the collection. Each is a title plus a short description. <b>Text only — no previews.</b> Clickable rows in the chat.</p>
+      <ul class="crit">
+        <li>Asking with a populated collection returns <b>exactly three</b> ideas</li>
+        <li>Each idea shows a <b>title and a description</b></li>
+        <li>Each idea can be <b>clicked to proceed</b></li>
+        <li>With a collection of only tiny plates, the reply says the parts can only make <b>small abstract shapes</b></li>
+      </ul>
+    </div>
+  </details>
+
+  <details>
+    <summary>Designing in 3D</summary>
+    <div class="rbody">
+      <p>Clicking an idea sends it to Claude, which returns the build as structured brick data the app renders. Bricks appear <b>layer by layer</b>, so the build assembles itself on screen. Size scales with the collection — one set → ~30–60 bricks, five sets → ~150–250.</p>
+      <ul class="crit">
+        <li>Clicking an idea produces a 3D model built from the <b>collection's parts</b></li>
+        <li>Bricks appear <b>progressively</b> rather than all at once</li>
+        <li>The model can be <b>rotated</b></li>
+        <li>The counter updates as bricks are placed and ends showing <b>used and available</b> counts</li>
+      </ul>
+    </div>
+  </details>
+
+  <details>
+    <summary>The inventory guarantee — the kernel</summary>
+    <div class="rbody">
+      <p>The app cannot display a brick the user does not own. Three layers, and <b>visible to the user</b>.</p>
+      <ol style="margin:0 0 10px;padding-left:19px;color:var(--dim);font-size:14px">
+        <li><b style="color:var(--ink)">The prompt contains only the user's parts</b> — Claude is never told about a part outside the collection.</li>
+        <li><b style="color:var(--ink)">validate_build checks every brick</b> — part exists, colour matches, quantity within stock, sits on the stud grid with support underneath.</li>
+        <li><b style="color:var(--ink)">Invalid bricks are dropped</b> — if Claude exhausts its attempts, the offending brick is removed rather than rendered.</li>
+      </ol>
+      <ul class="crit">
+        <li>Every brick in the rendered model <b>corresponds to a part in the collection</b></li>
+        <li>A quantity overrun is <b>reported to the user</b> in the kernel strip before it is resolved</li>
+        <li>A colour the user does not own is <b>never rendered</b></li>
+        <li>The final count of used parts <b>never exceeds</b> the collection total</li>
+      </ul>
+    </div>
+  </details>
+
+  <details>
+    <summary>Refining</summary>
+    <div class="rbody">
+      <p>The user describes a change in plain language; the design updates and is revalidated against the collection.</p>
+      <ul class="crit">
+        <li>“make it taller” produces an <b>updated model</b></li>
+        <li>The refined design is <b>revalidated</b> against the collection</li>
+        <li>The counter reflects the <b>updated</b> build</li>
+      </ul>
+    </div>
+  </details>
+
+  <details>
+    <summary>The collection</summary>
+    <div class="rbody">
+      <p>The user's sets live in the browser and survive a page reload.</p>
+      <ul class="crit">
+        <li>Closing and reopening the page <b>keeps the collection</b></li>
+        <li>The collection summary reflects the <b>saved sets</b></li>
+      </ul>
+    </div>
+  </details>
+</section>
+
+<section>
+  <h2>States and boundaries</h2>
+  <div class="grid g3">
+    <div class="card"><span class="st warn">First use</span><h4>Nothing added yet</h4><p>Empty canvas, greeting in the chat, empty collection summary.</p></div>
+    <div class="card"><span class="st warn">Too early</span><h4>Asked before adding a set</h4><p>Claude replies that it needs a set first. Canvas stays empty.</p></div>
+    <div class="card"><span class="st bad">Bad input</span><h4>Invalid set number</h4><p>Inline error under the input box. Field keeps the text; collection and chat unchanged.</p></div>
+    <div class="card"><span class="st bad">Failure</span><h4>Claude or the API fails</h4><p>Error appears in the chat. Canvas and collection unchanged. The page never white-screens.</p></div>
+    <div class="card"><span class="st bad">Violation</span><h4>Claude reaches for a brick you don't own</h4><p>Kernel strip flashes the specific problem, Claude corrects itself, brick resolves or is dropped.</p></div>
+    <div class="card"><span class="st ok">Honest limit</span><h4>Parts too poor to build anything</h4><p>Claude says so plainly and offers what is possible.</p></div>
+    <div class="card"><span class="st">Persistence</span><h4>What survives a reload</h4><p>The collection survives. The current chat and the current build do not.</p></div>
+    <div class="card"><span class="st">Boundary</span><h4>One browser, one collection</h4><p>No accounts, no sharing, no server-side user data.</p></div>
+    <div class="card"><span class="st">Boundary</span><h4>Cost</h4><p>The API is billed per token. Fine at demo scale; a real product needs a usage cap.</p></div>
+  </div>
+</section>
+
+<section>
+  <h2>Product decisions</h2>
+  <table>
+    <tbody>
+      <tr><td><b>Exactly three ideas, text only</b></td><td>The preview was cut — it saved three extra Claude calls and a whole second rendering mode, and the demo does not need it.</td></tr>
+      <tr><td><b>A dedicated set-number field</b></td><td>Keeps the chat purely conversational and makes adding a set unambiguous.</td></tr>
+      <tr><td><b>Inline error under the field</b></td><td>The error belongs next to the input that caused it.</td></tr>
+      <tr><td><b>Errors in the chat</b></td><td>API and Claude failures surface where the conversation is; the page must stay usable.</td></tr>
+      <tr><td><b>The kernel is visible in the UI</b></td><td>The constraint is the product's whole claim, so it is surfaced rather than hidden in the backend.</td></tr>
+      <tr><td><b>Warm off-white, Space Grotesk</b></td><td>Chosen by the learner from two offered directions.</td></tr>
+      <tr><td><b>Brickbrain</b></td><td>The product name — PRD title, repo, video, submission.</td></tr>
+      <tr><td><b>No sign-ups</b></td><td>Collections live in the browser. Also removes auth, a database, and a per-user cost.</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<section>
+  <h2>Boundary</h2>
+  <details open>
+    <summary>Deferred from the POC</summary>
+    <div class="rbody"><ul>
+      <li><b>Accounts and cloud-synced collections</b> — the audience is students and the brief is explicit: no sign-ups. Also removes an auth provider, a database, and a per-user hosting cost.</li>
+      <li><b>Preview images for suggestions</b> — cut to keep the build inside the time budget.</li>
+      <li><b>A deployed instance</b> — optional; a local run and a public repo are what is required.</li>
+      <li><b>More part geometries than standard bricks and plates</b> — slopes, wedges, round bricks, and printed parts are a large data job of their own.</li>
+      <li><b>Saving designs beyond the current session</b> — the collection persists; the build does not.</li>
+      <li><b>Usage caps</b> — the API costs per token. Fine at demo scale; a real product needs a cap before real traffic.</li>
+    </ul></div>
+  </details>
+  <details>
+    <summary>Non-goals</summary>
+    <div class="rbody"><ul>
+      <li><b>No image-to-brick generation.</b> Photo → mosaic is a computer-vision problem in its own right. Claude composes the model rather than deriving it from a photo.</li>
+      <li><b>No PDF build guides, parts lists, or GIF export.</b> Not needed to prove the kernel or the core loop.</li>
+      <li><b>No claude.ai as the chat client.</b> The chat lives on this page; the user never leaves the site.</li>
+      <li><b>No purchases, pricing, or store.</b> Out of scope for a proof of concept.</li>
+      <li><b>No accounts, sign-in, or shared collections.</b></li>
+      <li><b>No mobile-first layout.</b> The demo is a desktop experience.</li>
+    </ul></div>
+  </details>
+  <details>
+    <summary>Possible later enhancements</summary>
+    <div class="rbody"><ul>
+      <li>Register the MCP server so Claude Code and claude.ai can drive the builder.</li>
+      <li>A parts-list and build-instructions export.</li>
+      <li>“Buy the missing parts” — surface BrickLink / BrickOwl links for the shortfall.</li>
+      <li>Multiple designs side by side for the same collection.</li>
+      <li>More part geometries and printed part images.</li>
+    </ul></div>
+  </details>
+</section>
+
+<section>
+  <h2>Open questions</h2>
+  <table>
+    <tbody>
+      <tr><td><b>Does the current build survive a reload?</b></td><td>Default is no — only the collection persists. Low impact; can be settled during the build.</td></tr>
+      <tr><td><b>Exact greeting wording</b></td><td>Content is settled; phrasing is drafted in the build. Can wait.</td></tr>
+      <tr><td><b>Is the collection list collapsible?</b></td><td>Default is a compact always-visible summary. Can wait.</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<footer>
+  <p>Markdown is canonical — <code>devpost/prd.md</code> is the document of record. This page is a visual companion, rendered in the product's own palette.</p>
+</footer>
+
+</div>
+
+<script>
+(function(){
+  var steps=[
+    ['Arrive','The page opens on an <b>empty 3D brick canvas</b> beside a chat panel. A slim toolbar holds the set-number field and the collection. The chat greets: <b>“Enter a set number to get started”</b>, plus one line on what the app does.'],
+    ['Add a set','They type a set number into the dedicated field. The app fetches the parts, stores them, and confirms in the field: <b>“21328 — Lego Ideas (1,234 parts)”</b>. The collection list gains an entry.'],
+    ['Ask','They type <b>“what can I build with these?”</b> Claude reads the collection and replies with exactly <b>three</b> ideas, each a title plus a short description of what it is and roughly what it would take. Text only.'],
+    ['Pick','They click one of the three ideas.'],
+    ['Design','Claude designs the build using only parts in the collection, scaled to the pool — one set ≈ <b>30–60 bricks</b>, five sets ≈ <b>150–250</b>. The kernel strip shows the live count and any inventory violation as it happens.'],
+    ['See it','<b>The bricks appear in the 3D view, layer by layer.</b> They orbit the model. The counter reads <b>“47 / 312”</b>.'],
+    ['Refine','They say <b>“make it taller”</b> in plain language and the design updates, revalidated against the collection.'],
+    ['Success','The user is looking at a 3D build made only of bricks they own, every brick counting against their real inventory.']
+  ];
+  var wrap=document.getElementById('stepper'),body=document.getElementById('stepBody');
+  steps.forEach(function(st,i){
+    var b=document.createElement('button');
+    b.type='button';b.textContent=(i+1)+' · '+st[0];b.setAttribute('aria-pressed',i===0?'true':'false');
+    b.addEventListener('click',function(){pick(i)});
+    wrap.appendChild(b);
+  });
+  function pick(i){
+    [].forEach.call(wrap.children,function(c,j){c.setAttribute('aria-pressed',j===i?'true':'false')});
+    body.innerHTML='<span class="n">Step '+(i+1)+' of '+steps.length+' · '+steps[i][0]+'</span><p>'+steps[i][1]+'</p>';
+  }
+  pick(0);
+})();
+</script>
+</body>
+</html>

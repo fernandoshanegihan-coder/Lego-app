@@ -1,0 +1,629 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Brickbrain — Technical Spec</title>
+<style>
+  :root{
+    --bench:#f5f1e8; --canvas:#ebe5d8; --panel:#fbf9f4; --edge:#e2dccf;
+    --ink:#2a2620; --dim:#7a7263; --faint:#a49a88;
+    --accent:#ffd814; --accent-ink:#8a7400;
+    --ok-text:#1c7a45; --ok-bg:#e4f3ea; --ok-line:#7fbb99;
+    --bad-text:#a81f16; --bad-bg:#fbe9e7; --bad-line:#d9a49f;
+    --info:#1f5f8b; --info-bg:#e6f1f8;
+    --sans:"Space Grotesk",-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,sans-serif;
+    --mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bench);color:var(--ink);font:16px/1.65 var(--sans);-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1140px;margin:0 auto;padding:0 24px 96px}
+
+  header{padding:52px 0 32px;border-bottom:1px solid var(--edge)}
+  .eyebrow{font:600 11.5px/1 var(--mono);letter-spacing:.16em;text-transform:uppercase;color:var(--accent-ink)}
+  h1{font-size:clamp(32px,5.5vw,52px);line-height:1.05;margin:16px 0 10px;letter-spacing:-.025em}
+  .tagline{font-size:18.5px;color:var(--dim);max-width:70ch;margin:0 0 20px}
+  .badges{display:flex;flex-wrap:wrap;gap:8px}
+  .badge{font:600 11px/1 var(--mono);letter-spacing:.08em;text-transform:uppercase;padding:7px 11px;border-radius:999px;border:1px solid var(--edge);background:var(--panel);color:var(--dim)}
+  .badge.draft{border-color:#e0d49a;background:#fdf6dc;color:#7a6600}
+
+  section{margin:0 0 54px}
+  h2{font:600 12.5px/1 var(--mono);letter-spacing:.15em;text-transform:uppercase;color:var(--faint);margin:0 0 18px;display:flex;align-items:center;gap:12px}
+  h2::after{content:"";flex:1;height:1px;background:var(--edge)}
+  h3{font-size:19px;margin:0 0 12px;letter-spacing:-.01em}
+  p{margin:0 0 13px;max-width:78ch;color:var(--dim)}
+  strong{color:var(--ink);font-weight:600}
+  code{font:12.5px var(--mono);background:#f1ece0;border:1px solid var(--edge);padding:1.5px 5px;border-radius:5px;color:#5c4b1e;white-space:nowrap}
+
+  figure{margin:0;background:var(--panel);border:1px solid var(--edge);border-radius:14px;padding:22px 18px 12px;overflow-x:auto;box-shadow:0 1px 2px rgba(42,38,32,.04)}
+  figcaption{font:12px/1.5 var(--mono);color:var(--faint);padding:10px 6px 8px;white-space:normal}
+  svg{display:block;width:100%;height:auto;min-width:700px}
+
+  .bx{fill:#fffdf8;stroke:var(--edge);stroke-width:1.5}
+  .bx-hi{fill:#fdf6dc;stroke:var(--accent);stroke-width:2}
+  .bx-k{fill:var(--ok-bg);stroke:var(--ok-line);stroke-width:1.5}
+  .bx-b{fill:var(--bad-bg);stroke:var(--bad-line);stroke-width:1.5}
+  .bx-i{fill:var(--info-bg);stroke:#9dc2da;stroke-width:1.5}
+  .t{fill:var(--ink);font:600 13px var(--sans)}
+  .t-s{fill:var(--dim);font:400 11px var(--sans)}
+  .t-m{fill:var(--faint);font:600 9.5px var(--mono);letter-spacing:.1em}
+  .t-k{fill:var(--ok-text);font:600 10.5px var(--mono);letter-spacing:.06em}
+  .t-b{fill:var(--bad-text);font:600 10.5px var(--mono);letter-spacing:.06em}
+  .ln{stroke:#c3b9a4;stroke-width:1.5;fill:none}
+  .ln-hi{stroke:var(--accent-ink);stroke-width:2;fill:none}
+  .ln-ok{stroke:var(--ok-line);stroke-width:2;fill:none;stroke-dasharray:5 4}
+  .ln-bad{stroke:var(--bad-line);stroke-width:2;fill:none;stroke-dasharray:5 4}
+  .life{stroke:#d6ccb8;stroke-width:1.5;stroke-dasharray:3 5}
+
+  /* journey table */
+  table{width:100%;border-collapse:collapse;font-size:14px}
+  th{text-align:left;font:600 10.5px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--faint);padding:0 14px 9px 0;border-bottom:1px solid var(--edge)}
+  td{padding:11px 14px 11px 0;border-bottom:1px solid var(--edge);vertical-align:top;color:var(--dim)}
+  td b{color:var(--ink)}
+  td:first-child{white-space:nowrap}
+
+  /* explorer */
+  .tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px}
+  .tabs button{font:600 11.5px var(--mono);padding:8px 12px;border-radius:7px;cursor:pointer;background:var(--panel);border:1px solid var(--edge);color:var(--dim);transition:.14s}
+  .tabs button:hover{border-color:#cdc4b0;color:var(--ink)}
+  .tabs button[aria-pressed=true]{background:var(--ink);border-color:var(--ink);color:#fff}
+  .panel{background:var(--panel);border:1px solid var(--edge);border-radius:12px;padding:20px 22px;min-height:140px;box-shadow:0 1px 2px rgba(42,38,32,.04)}
+  .panel .fname{font:600 12px var(--mono);color:var(--accent-ink);display:block;margin-bottom:10px}
+  .panel p{margin:0 0 10px}
+  .panel .prd{font:11.5px var(--mono);color:var(--faint);margin-top:10px;border-top:1px solid var(--edge);padding-top:10px}
+
+  /* grid cards */
+  .grid{display:grid;gap:11px}
+  .g2{grid-template-columns:repeat(auto-fit,minmax(320px,1fr))}
+  .g3{grid-template-columns:repeat(auto-fit,minmax(240px,1fr))}
+  .card{background:var(--panel);border:1px solid var(--edge);border-radius:11px;padding:16px 18px}
+  .card h4{margin:0 0 7px;font-size:14.5px}
+  .card p{margin:0;font-size:13.5px;line-height:1.55}
+  .card .st{font:700 10px var(--mono);letter-spacing:.1em;text-transform:uppercase;display:block;margin-bottom:7px}
+  .st.ok{color:var(--ok-text)} .st.bad{color:var(--bad-text)} .st.warn{color:var(--accent-ink)} .st.info{color:var(--info)}
+
+  details{background:var(--panel);border:1px solid var(--edge);border-radius:11px;margin-bottom:9px;overflow:hidden}
+  summary{cursor:pointer;list-style:none;padding:15px 19px;font-weight:600;font-size:15px;display:flex;align-items:center;gap:11px;user-select:none}
+  summary::-webkit-details-marker{display:none}
+  summary::before{content:"+";font:700 15px var(--mono);color:var(--accent-ink);width:12px}
+  details[open] summary::before{content:"–"}
+  summary:hover{background:#fffdf8}
+  .rbody{padding:0 19px 16px 43px}
+  .rbody ul{margin:0;padding-left:17px}
+  .rbody li{margin-bottom:8px;font-size:14px;color:var(--dim)}
+  .rbody li b{color:var(--ink)}
+
+  pre{background:#2a2620;color:#e8e2d4;padding:18px 20px;border-radius:11px;overflow-x:auto;font:12.5px/1.7 var(--mono);margin:0}
+  pre .c{color:#8d8578}
+  pre .k{color:#ffd814}
+  pre .g{color:#8fd6a8}
+  .note{font-size:13px;color:var(--faint);font-style:italic}
+  footer{border-top:1px solid var(--edge);padding-top:22px;font:12.5px/1.7 var(--mono);color:var(--faint)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <div class="eyebrow">Build With AI: Basics &nbsp;·&nbsp; Technical Spec</div>
+  <h1>Brickbrain</h1>
+  <p class="tagline">One Next.js process, one in-memory MCP server per conversation, two outbound APIs — and a validator that turns a violation into data so Claude fixes its own design.</p>
+  <div class="badges">
+    <span class="badge draft">Status · approved</span>
+    <span class="badge">Local only · no deploy</span>
+    <span class="badge">Next.js + R3F</span>
+    <span class="badge">In-process MCP</span>
+    <span class="badge">spec.md is canonical</span>
+  </div>
+</header>
+
+<section>
+  <h2>How this works, in one breath</h2>
+  <p>The browser holds your parts and nothing else. The server holds the two API keys, reads your parts off the wire, and throws them away when the request ends. <strong>Claude's only source of bricks is the inventory attached to your message.</strong></p>
+  <p>The unusual part: Claude can run <code>validate_build</code> mid-answer. It returns <em>data</em>, not an error — so Claude reads "you use 4 red 2×4s, you own 2" and edits in the same turn. If it can't get clean in six turns, the server drops the offending bricks and renders the rest. The canvas cannot show a brick the validator rejected.</p>
+  <p>Tools are served over <strong>MCP</strong>, so the same tool code is drivable by this app and by Claude Code, unchanged.</p>
+</section>
+
+<section>
+  <h2>The request path</h2>
+  <figure>
+    <svg viewBox="0 0 1040 340" role="img" aria-label="Architecture: browser posts to a Next.js route which drives an in-process MCP server and the Anthropic API">
+      <!-- browser chat -->
+      <rect class="bx" x="24" y="24" width="220" height="112" rx="12"/>
+      <text class="t-m" x="40" y="46">BROWSER · REACT</text>
+      <text class="t" x="40" y="72">Toolbar</text>
+      <text class="t-s" x="40" y="90">set field · collection</text>
+      <text class="t" x="40" y="112">Chat panel</text>
+      <text class="t-s" x="40" y="130">messages · idea cards</text>
+
+      <!-- browser 3d -->
+      <rect class="bx" x="24" y="150" width="220" height="72" rx="12"/>
+      <text class="t-m" x="40" y="172">BROWSER · 3D</text>
+      <text class="t" x="40" y="196">Canvas + kernel strip</text>
+      <text class="t-s" x="40" y="214">R3F bricks · 47 / 612</text>
+
+      <!-- localStorage -->
+      <rect class="bx-i" x="24" y="236" width="220" height="70" rx="12"/>
+      <text class="t-m" x="40" y="258">BROWSER · PERSISTENT</text>
+      <text class="t" x="40" y="282">localStorage</text>
+      <text class="t-s" x="40" y="299">the only copy of the collection</text>
+
+      <!-- route -->
+      <rect class="bx-hi" x="420" y="24" width="250" height="200" rx="12"/>
+      <text class="t-m" x="436" y="46">NEXT.JS ROUTE · NODE</text>
+      <text class="t" x="436" y="72">/api/chat</text>
+      <text class="t-s" x="436" y="90">holds both API keys</text>
+      <text class="t-s" x="436" y="116">1 · build system prompt</text>
+      <text class="t-s" x="436" y="134">2 · spawn MCP server</text>
+      <text class="t-s" x="436" y="152">3 · run the agent loop</text>
+      <text class="t-s" x="436" y="170">4 · stream events back</text>
+      <text class="t-s" x="436" y="196" style="fill:var(--bad-text)">5 · then discard everything</text>
+
+      <!-- mcp -->
+      <rect class="bx-k" x="740" y="24" width="150" height="140" rx="12"/>
+      <text class="t-m" x="756" y="46">MCP SERVER</text>
+      <text class="t-s" x="756" y="68">in-process,</text>
+      <text class="t-s" x="756" y="84">one per request</text>
+      <text class="t-k" x="756" y="112">validate_build</text>
+      <text class="t-s" x="756" y="130">pure, no I/O</text>
+      <text class="t-s" x="756" y="152">+ 4 more tools</text>
+
+      <!-- anthropic -->
+      <rect class="bx" x="930" y="24" width="100" height="84" rx="12"/>
+      <text class="t-m" x="944" y="46">ANTHROPIC</text>
+      <text class="t" x="944" y="72">Messages</text>
+      <text class="t-s" x="944" y="90">streamed</text>
+
+      <!-- rebrickable -->
+      <rect class="bx" x="420" y="252" width="250" height="64" rx="12"/>
+      <text class="t-m" x="436" y="274">REBRICKABLE</text>
+      <text class="t" x="436" y="298">REST · ≈1 req/s</text>
+
+      <!-- arrows -->
+      <path class="ln-hi" d="M244 80 H414"/>
+      <path class="ln-hi" d="M406 74 L416 80 L406 86"/>
+      <text class="t-m" x="252" y="72">POST · chat + inventory</text>
+
+      <path class="ln" d="M420 180 H250"/>
+      <path class="ln" d="M258 174 L248 180 L258 186"/>
+      <text class="t-m" x="258" y="172">stream events</text>
+
+      <path class="ln" d="M670 70 H734"/>
+      <path class="ln" d="M726 64 L736 70 L726 76"/>
+      <text class="t-m" x="676" y="60">callTool</text>
+
+      <path class="ln" d="M890 66 H924"/>
+      <path class="ln" d="M916 60 L926 66 L916 72"/>
+      <text class="t-m" x="900" y="56">API</text>
+
+      <path class="ln" d="M545 224 V246"/>
+      <path class="ln" d="M539 240 L545 250 L551 240"/>
+      <text class="t-m" x="556" y="242">set lookup</text>
+    </svg>
+    <figcaption>Fig. 1 — One request, one conversation, one throwaway MCP server. Nothing survives the response.</figcaption>
+  </figure>
+  <p class="note">The collection never touches a server-side store. It rides along with each chat request and is discarded with it — which is what makes "no accounts, no database, no server-side user data" true rather than aspirational.</p>
+</section>
+
+<section>
+  <h2>The correction loop</h2>
+  <p>This is the mechanism the whole product rests on. <strong>A violation is returned, not thrown.</strong> A thrown error ends the agent loop; a returned violation continues it.</p>
+  <figure>
+    <svg viewBox="0 0 1040 520" role="img" aria-label="Sequence diagram of Claude calling validate_build, receiving a violation, revising, and calling it again">
+      <defs>
+        <marker id="ah" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto">
+          <path d="M0 0 L9 4.5 L0 9 z" fill="#c3b9a4"/>
+        </marker>
+        <marker id="ah-bad" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto">
+          <path d="M0 0 L9 4.5 L0 9 z" fill="#d9a49f"/>
+        </marker>
+        <marker id="ah-ok" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto">
+          <path d="M0 0 L9 4.5 L0 9 z" fill="#7fbb99"/>
+        </marker>
+      </defs>
+
+      <!-- lifelines -->
+      <rect class="bx" x="40"  y="16" width="160" height="42" rx="9"/>
+      <text class="t" x="56" y="43">Browser</text>
+      <path class="life" d="M120 58 V500"/>
+
+      <rect class="bx-hi" x="270" y="16" width="180" height="42" rx="9"/>
+      <text class="t" x="286" y="43">Route · loop</text>
+      <path class="life" d="M360 58 V500"/>
+
+      <rect class="bx" x="530" y="16" width="160" height="42" rx="9"/>
+      <text class="t" x="546" y="43">Claude</text>
+      <path class="life" d="M610 58 V500"/>
+
+      <rect class="bx-k" x="780" y="16" width="190" height="42" rx="9"/>
+      <text class="t" x="796" y="43">MCP · validate_build</text>
+      <path class="life" d="M875 58 V500"/>
+
+      <!-- 1 -->
+      <path class="ln" d="M120 92 H354" marker-end="url(#ah)"/>
+      <text class="t-m" x="130" y="84">POST {messages, inventory}</text>
+
+      <!-- 2 -->
+      <path class="ln" d="M360 134 H604" marker-end="url(#ah)"/>
+      <text class="t-m" x="370" y="126">messages + 5 tool schemas from the MCP server</text>
+
+      <!-- 3 -->
+      <path class="ln" d="M610 186 H869" marker-end="url(#ah)"/>
+      <text class="t-m" x="620" y="178">validate_build({ bricks: [ …47 ] })</text>
+
+      <!-- 4 violation -->
+      <path class="ln-bad" d="M875 238 H616" marker-end="url(#ah-bad)"/>
+      <text class="t-b" x="640" y="230">ok: false · 2 violations</text>
+      <rect class="bx-b" x="400" y="248" width="420" height="40" rx="7"/>
+      <text class="t-s" x="414" y="265" style="fill:var(--bad-text)">brick 31 · quantity · "red 2×4 — design uses 4, you own 2"</text>
+      <text class="t-s" x="414" y="281" style="fill:var(--bad-text)">brick 32 · support · "nothing underneath at y=3"</text>
+
+      <!-- self edit -->
+      <path class="ln" d="M610 308 H680 V336 H616" marker-end="url(#ah)"/>
+      <text class="t-m" x="690" y="326">rewrites bricks 31, 32</text>
+
+      <!-- 5 -->
+      <path class="ln" d="M610 380 H869" marker-end="url(#ah)"/>
+      <text class="t-m" x="620" y="372">validate_build({ bricks: [ …47 ] })</text>
+
+      <!-- 6 ok -->
+      <path class="ln-ok" d="M875 424 H616" marker-end="url(#ah-ok)"/>
+      <text class="t-k" x="660" y="416">ok: true · used 47 / 612</text>
+
+      <!-- 7 -->
+      <path class="ln" d="M610 466 H366" marker-end="url(#ah)"/>
+      <text class="t-m" x="400" y="458">final design</text>
+
+      <!-- 8 -->
+      <path class="ln" d="M360 496 H126" marker-end="url(#ah)"/>
+      <text class="t-m" x="160" y="488">stream: build + kernel events</text>
+    </svg>
+    <figcaption>Fig. 2 — Two tool calls, one correction, no retry machinery. The loop exists because the violation came back as a tool result.</figcaption>
+  </figure>
+</section>
+
+<section>
+  <h2>The occupancy grid</h2>
+  <p>Every brick occupies a box on an integer grid: <code>x</code> and <code>z</code> in studs, <code>y</code> in <strong>plates</strong>. A plate is 1, a brick is 3. Support is checked cell by cell — one occupied cell directly beneath the footprint is enough.</p>
+  <figure>
+    <svg viewBox="0 0 1040 400" role="img" aria-label="Side elevation of the brick grid showing a plate, two bricks, and an unsupported floating brick">
+      <!-- grid -->
+      <g stroke="#ded5c4" stroke-width="1" fill="none">
+        <!-- 8 rows x 6 cols, cell 44 x 24, origin 110,320 -->
+        <g id="rows"></g>
+      </g>
+      <g id="cells"></g>
+
+      <!-- plate -->
+      <rect x="110" y="296" width="88" height="24" fill="#f2cd37" stroke="#c9a41f" stroke-width="1.5" rx="2"/>
+      <!-- brick 1 -->
+      <rect x="110" y="224" width="176" height="72" fill="#0055bf" stroke="#003f8f" stroke-width="1.5" rx="2"/>
+      <!-- brick 2 -->
+      <rect x="110" y="152" width="88" height="72" fill="#c4281c" stroke="#94200f" stroke-width="1.5" rx="2"/>
+      <!-- floating -->
+      <rect x="286" y="128" width="88" height="72" fill="none" stroke="#a81f16" stroke-width="2" stroke-dasharray="6 5" rx="2"/>
+      <text x="330" y="170" text-anchor="middle" style="fill:var(--bad-text);font:700 22px var(--sans)">✕</text>
+
+      <!-- baseplate -->
+      <rect x="110" y="320" width="264" height="10" fill="#b9b0a0" rx="2"/>
+
+      <!-- y axis -->
+      <path class="ln" d="M92 320 V130"/>
+      <path class="ln" d="M86 138 L92 128 L98 138"/>
+      <text class="t-m" x="58" y="122">PLATES</text>
+      <text class="t-s" x="70" y="323">0</text>
+      <text class="t-s" x="70" y="251">3</text>
+      <text class="t-s" x="70" y="179">6</text>
+
+      <!-- callouts -->
+      <path class="ln" d="M206 308 H262"/>
+      <text class="t-s" x="270" y="312">plate · h = 1</text>
+
+      <path class="ln" d="M294 260 H360"/>
+      <text class="t-s" x="368" y="258">brick · h = 3</text>
+      <text class="t-s" x="368" y="274">4 × 2 footprint, rotated 0°</text>
+
+      <path class="ln" d="M206 188 H262"/>
+      <text class="t-s" x="270" y="192">supported: cell at y=3 is occupied</text>
+
+      <path class="ln" d="M382 164 H440"/>
+      <text class="t-s" x="448" y="156" style="fill:var(--bad-text)">unsupported</text>
+      <text class="t-s" x="448" y="172" style="fill:var(--bad-text)">nothing at y=4 beneath it</text>
+      <text class="t-s" x="448" y="188" style="fill:var(--bad-text)">→ rule: support</text>
+
+      <!-- rules panel -->
+      <rect class="bx" x="620" y="230" width="396" height="140" rx="10"/>
+      <text class="t-m" x="636" y="252">SEVEN RULES, IN ORDER</text>
+      <text class="t-s" x="636" y="274">1 known part   2 known colour   3 quantity</text>
+      <text class="t-s" x="636" y="294">4 in bounds    5 no overlap     6 supported</text>
+      <text class="t-s" x="636" y="314">7 grounded at y = 0</text>
+      <text class="t-s" x="636" y="342" style="fill:var(--ok-text)">Slopes occupy their box and support nothing.</text>
+      <text class="t-s" x="636" y="358" style="fill:var(--ok-text)">Conservative, and it prevents nonsense.</text>
+    </svg>
+    <figcaption>Fig. 3 — Why <code>y</code> is measured in plates. Integer arithmetic, no float tolerance, no "close enough".</figcaption>
+  </figure>
+</section>
+
+<section>
+  <h2>The core journey through the system</h2>
+  <table>
+    <thead><tr><th>Step</th><th>What happens</th><th>Lives in</th></tr></thead>
+    <tbody>
+      <tr><td><b>1 Arrive</b></td><td>Page renders. Collection read from <code>localStorage</code>. Canvas shows the bare baseplate. <b>No model call until the user speaks.</b></td><td><code>app/page.tsx</code><br><code>lib/storage.ts</code></td></tr>
+      <tr><td><b>2 Add a set</b></td><td>Set field posts to <code>/api/sets</code> → Rebrickable → normalized → unrenderable parts dropped → returned → merged → saved.</td><td><code>components/SetField.tsx</code><br><code>app/api/sets/route.ts</code><br><code>parts/normalize.ts</code></td></tr>
+      <tr><td><b>3 Ask</b></td><td>Chat posts <code>{messages, inventory}</code>. Route builds the prompt, spawns the per-request MCP server, opens the loop. Claude calls <code>propose_ideas</code> with exactly three.</td><td><code>app/api/chat/route.ts</code><br><code>lib/loop.ts</code></td></tr>
+      <tr><td><b>4 Pick</b></td><td>Clicking a card sends its title as a plain user message. Same path as step 3.</td><td><code>components/IdeaCard.tsx</code></td></tr>
+      <tr><td><b>5 Design</b></td><td>Claude composes, calls <code>validate_build</code>, reads violations, edits, calls again. Passes → <code>build</code> event. Six turns → drop and render the rest.</td><td><code>mcp/tools.ts</code><br><code>validate/validateBuild.ts</code></td></tr>
+      <tr><td><b>6 See it</b></td><td>Bricks sorted by <code>y</code>, revealed on a 25ms interval. Strip shows <code>used / available</code>.</td><td><code>components/BuildCanvas.tsx</code><br><code>scene/brickGeometry.ts</code></td></tr>
+      <tr><td><b>7 Refine</b></td><td>Same path as step 3. History carries the prior design. Revalidation is automatic.</td><td><code>lib/loop.ts</code></td></tr>
+      <tr><td><b>8 Success</b></td><td>Strip green, counter reconciles, every brick maps to a part in <code>localStorage</code>.</td><td><code>components/KernelStrip.tsx</code></td></tr>
+    </tbody>
+  </table>
+</section>
+
+<section>
+  <h2>Components</h2>
+  <div class="tabs" id="tabs" role="group" aria-label="Components"></div>
+  <div class="panel" id="panel"></div>
+</section>
+
+<section>
+  <h2>Stack and where it runs</h2>
+  <div class="grid g2">
+    <div class="card"><span class="st warn">Framework</span><h4>Next.js + TypeScript</h4><p>One process, one port. Route handlers hold both API keys, so the browser never sees them. Accepted tradeoff: more framework than a single page needs.</p></div>
+    <div class="card"><span class="st warn">3D</span><h4>three.js · R3F · drei</h4><p>The build is a list; the scene is a map over it. Layer-by-layer reveal is a slice. drei gives orbit controls and studio lighting.</p></div>
+    <div class="card"><span class="st ok">Tools</span><h4>@modelcontextprotocol/sdk</h4><p>Real MCP over <code>InMemoryTransport</code>. Tool schemas are listed <em>from the server</em>, so each tool is described in exactly one place.</p></div>
+    <div class="card"><span class="st ok">Model</span><h4>@anthropic-ai/sdk</h4><p>Hand-rolled loop, ~40 lines. Streaming, explicit, and it makes the MCP mechanism visible — which is the point.</p></div>
+    <div class="card"><span class="st info">Runtime</span><h4>Local only</h4><p>Node 20+, two keys in <code>.env.local</code>, <code>npm run dev</code>, open <code>localhost:3000</code>. No deploy, no database, no Docker.</p></div>
+    <div class="card"><span class="st info">Tests</span><h4>Vitest</h4><p>The validator is pure functions — one test per violation type, plus name parsing, rotation, and support math.</p></div>
+  </div>
+
+  <h3 style="margin-top:26px">Check first thing in the build</h3>
+  <div class="grid g3">
+    <div class="card"><p><b>Model ID.</b> One constant in <code>lib/anthropic.ts</code>. Default to the cheapest current Haiku-class model.</p></div>
+    <div class="card"><p><b>SDK helper paths.</b> The plan doesn't depend on them — the loop is hand-rolled — but verify before importing.</p></div>
+    <div class="card"><p><b>Rebrickable category IDs.</b> Fetched at runtime. Confirm the bricks/plates/tiles/slope allowlist against a real set.</p></div>
+  </div>
+</section>
+
+<section>
+  <h2>Data</h2>
+  <div class="grid g2">
+    <div class="card">
+      <span class="st ok">Persisted · localStorage</span>
+      <h4>The collection</h4>
+      <p style="margin-bottom:10px">Sets, and within each, only the <b>buildable</b> parts. The pool is derived on read by aggregating quantities across sets by <code>(partNum, colorId)</code>.</p>
+      <pre style="padding:14px 16px;font-size:11.5px">StoredSet {
+  setNum, name,
+  totalParts,      <span class="c">// box count</span>
+  buildableParts,  <span class="c">// renderable</span>
+  parts: StoredPart[]
+}
+StoredPart {
+  partNum, name, category,
+  w, d,            <span class="c">// studs</span>
+  h,               <span class="c">// plates</span>
+  colorId, colorName, quantity
+}</pre>
+    </div>
+    <div class="card">
+      <span class="st bad">In memory only</span>
+      <h4>The build</h4>
+      <p style="margin-bottom:10px">React state. Reload and it's gone — the collection persists, the build does not. That was a deliberate call, not an oversight.</p>
+      <pre style="padding:14px 16px;font-size:11.5px">PlacedBrick {
+  id, partNum, colorId, colorName,
+  x,  <span class="c">// studs</span>
+  y,  <span class="c">// plates</span>
+  z,  <span class="c">// studs</span>
+  rot <span class="c">// 0 | 90 | 180 | 270</span>
+}</pre>
+    </div>
+  </div>
+  <p class="note" style="margin-top:12px">The inventory is posted fresh with every chat message. The server retains none of it — no session, no cache, no user row.</p>
+</section>
+
+<section>
+  <h2>File structure</h2>
+  <pre>lego-app/
+├── app/
+│   ├── layout.tsx          <span class="c"># fonts, page shell</span>
+│   ├── page.tsx            <span class="c"># toolbar + canvas + chat</span>
+│   ├── globals.css         <span class="c"># palette variables, Tailwind layer</span>
+│   └── api/
+│       ├── chat/route.ts   <span class="c"># the agent loop; streams events</span>
+│       └── sets/route.ts   <span class="c"># Rebrickable fetch for the toolbar</span>
+├── components/
+│   ├── Toolbar.tsx  SetField.tsx  CollectionSummary.tsx
+│   ├── ChatPanel.tsx  MessageList.tsx  IdeaCard.tsx
+│   ├── KernelStrip.tsx
+│   └── BuildCanvas.tsx
+├── scene/
+│   ├── Scene.tsx           <span class="c"># lights, environment, orbit, baseplate</span>
+│   ├── BrickMesh.tsx       <span class="c"># one brick</span>
+│   └── brickGeometry.ts    <span class="c"># procedural LEGO geometry, cached</span>
+├── lib/
+│   ├── types.ts            <span class="c"># every shared type</span>
+│   ├── collection.ts       <span class="c"># aggregate, add, duplicate detection</span>
+│   ├── storage.ts          <span class="c"># localStorage + version key</span>
+│   ├── anthropic.ts        <span class="c"># client, model constant, prompt builder</span>
+│   ├── loop.ts             <span class="c"># agent loop + three-strike rule</span>
+│   └── sse.ts              <span class="c"># event-stream encoding</span>
+├── mcp/
+│   ├── tools.ts            <span class="c"># five tool functions — no MCP imports</span>
+│   ├── server.ts           <span class="c"># McpServer per request</span>
+│   └── stdio.ts            <span class="c"># adapter for Claude Code</span>
+├── parts/
+│   ├── normalize.ts        <span class="c"># Rebrickable → StoredPart</span>
+│   ├── categories.ts  colors.ts  shapes.ts
+├── rebrickable/
+│   └── client.ts           <span class="c"># two GETs, throttle, error mapping</span>
+├── validate/
+│   ├── validateBuild.ts    <span class="c"># THE KERNEL — pure, no I/O</span>
+│   └── *.test.ts           <span class="c"># the only real test coverage</span>
+├── devpost/                <span class="c"># scope, prd, spec (+ companions)</span>
+├── .mcp.json               <span class="c"># Claude Code registration</span>
+├── .env.example
+└── README.md</pre>
+</section>
+
+<section>
+  <h2>What breaks, and what the user sees</h2>
+  <div class="grid g2">
+    <div class="card"><span class="st warn">Most likely</span><h4>The set has nothing renderable</h4><p>"21328 loaded, but none of its 1,234 parts can be drawn." The set is <b>not</b> added. Better an honest refusal than an empty shell.</p></div>
+    <div class="card"><span class="st bad">The interesting one</span><h4>Claude can't get clean in six turns</h4><p>Three-strike rule: drop the offending bricks, render the rest. Strip reads "12 bricks dropped — they weren't in your collection."</p></div>
+    <div class="card"><span class="st bad">Malformed output</span><h4>Bad JSON, or a non-integer coordinate</h4><p>zod rejects it inside the tool call and returns the schema <em>as a tool result</em>, so Claude retries. Two failures → one plain line in the chat.</p></div>
+    <div class="card"><span class="st bad">External</span><h4>Anthropic unreachable or key rejected</h4><p>A single line in the chat. Canvas and collection untouched. The page never white-screens.</p></div>
+    <div class="card"><span class="st warn">Browser</span><h4>localStorage unavailable or full</h4><p>The app runs, the collection doesn't persist. One notice, once.</p></div>
+    <div class="card"><span class="st warn">Rate limit</span><h4>Rebrickable 429</h4><p>One retry after 2s, then an inline error under the field.</p></div>
+  </div>
+</section>
+
+<section>
+  <h2>What was simplified</h2>
+  <details open>
+    <summary>Procedural geometry instead of the LDraw library</summary>
+    <div class="rbody"><p>Studs, bevels, and slopes drawn in code. This makes the renderer's vocabulary and the validator's vocabulary <b>the same set</b> — a part that can't be drawn can't enter the pool. The fuller version needs a ~100MB asset library, a Rebrickable→LDraw mapping table, and handling for parts with no model. A day minimum, and the kind of integration that silently eats two.</p></div>
+  </details>
+  <details>
+    <summary>In-process MCP server instead of a stdio subprocess</summary>
+    <div class="rbody"><p>No process lifecycle, no cross-process context passing, same protocol. The stdio adapter still ships, so a judge can point Claude Code at the same tools.</p></div>
+  </details>
+  <details>
+    <summary>A hand-rolled loop instead of the SDK's toolRunner</summary>
+    <div class="rbody"><p>Explicit, streamable, ~40 lines. The helper would hide the exact mechanism this project exists to demonstrate. It also keeps the loop transport-agnostic: it only ever calls <code>mcpClient.callTool</code>.</p></div>
+  </details>
+  <details>
+    <summary>localStorage instead of a database</summary>
+    <div class="rbody"><p>No accounts, no server-side user data, nothing to deploy. The fuller version needs auth, a schema, and a per-user hosting cost.</p></div>
+  </details>
+  <details>
+    <summary>Slopes support nothing</summary>
+    <div class="rbody"><p>A slope occupies its full bounding box and no brick may rest on its angled face. Real LEGO allows a stud on the tall edge; modelling that correctly would complicate the support rule for a rare case. Conservative is fine.</p></div>
+  </details>
+</section>
+
+<section>
+  <h2>Decisions and open issues</h2>
+  <table>
+    <thead><tr><th>Decision</th><th>Choice</th><th>Tradeoff accepted</th></tr></thead>
+    <tbody>
+      <tr><td><b>Stack</b></td><td>Next.js + TS + R3F + Tailwind</td><td>More framework than one page needs, for one process and one port.</td></tr>
+      <tr><td><b>Where it runs</b></td><td>Local only</td><td>A judge must clone to try it; the video and repo carry the submission.</td></tr>
+      <tr><td><b>MCP shape</b></td><td>In-process + stdio adapter</td><td>No separate process on the request path; the Claude Code story still ships.</td></tr>
+      <tr><td><b>Rendering</b></td><td>Procedural, not LDraw</td><td>No curved slopes, Technic, or printed parts.</td></tr>
+      <tr><td><b>Parts sidebar</b></td><td>Not built</td><td>The kernel strip already states the tally.</td></tr>
+      <tr><td><b>Part counts</b></td><td>Two: box and buildable</td><td>One number would be simpler and slightly dishonest.</td></tr>
+      <tr><td><b>Verification</b></td><td>Tests on the validator, manual elsewhere</td><td>No automated coverage of the 3D or the Claude calls.</td></tr>
+    </tbody>
+  </table>
+
+  <h3 style="margin-top:26px">The one useful unknown</h3>
+  <div class="card" style="border-left:3px solid var(--accent)">
+    <h4>How does <code>validate_build</code> make Claude fix itself?</h4>
+    <p style="margin-top:6px">The learner's stated goal was to understand MCP; the concrete uncertainty was why this doesn't need a retry system bolted on afterwards. Clarified by the trace in Fig. 2: the tool returns <code>{ ok: false, violations }</code> as ordinary tool output, so the model reads it <em>in the same turn</em> and edits. A thrown error would have ended the loop instead.</p>
+    <p style="margin-top:8px"><b>Evidence the build must produce:</b> a recorded session where Claude's second <code>validate_build</code> call passes after a first one failed.</p>
+  </div>
+
+  <h3 style="margin-top:22px">Open, all low-impact</h3>
+  <div class="grid g3">
+    <div class="card"><p><b>Model ID</b> — confirm on day one; one constant.</p></div>
+    <div class="card"><p><b>SDK helper import paths</b> — irrelevant if the hand-rolled loop holds.</p></div>
+    <div class="card"><p><b>Rebrickable category IDs</b> — verify the allowlist against a real set.</p></div>
+    <div class="card"><p><b>Inventory token ceiling</b> — measure with five sets; cap above ~4k tokens.</p></div>
+    <div class="card"><p><b>Build survives reload?</b> — still no.</p></div>
+    <div class="card"><p><b>Greeting and idea titles</b> — drafted in the build.</p></div>
+  </div>
+</section>
+
+<footer>
+  <p>Markdown is canonical — <code>devpost/spec.md</code> is the document of record. This page is a visual companion, rendered in the product's own palette, with no framework and no network dependency.</p>
+</footer>
+
+</div>
+
+<script>
+(function(){
+  /* build the occupancy grid back layer */
+  var rows=document.getElementById('rows'), cells=document.getElementById('cells');
+  var W=44,H=24,X0=110,YB=320,COLS=6,ROWS=8;
+  var rl='', nl='';
+  for(var r=0;r<ROWS;r++){
+    var y=YB-(r+1)*H;
+    rl+='<line x1="'+X0+'" y1="'+y+'" x2="'+(X0+COLS*W)+'" y2="'+y+'"/>';
+  }
+  for(var c=0;c<=COLS;c++){
+    var x=X0+c*W;
+    rl+='<line x1="'+x+'" y1="'+YB+'" x2="'+x+'" y2="'+(YB-ROWS*H)+'"/>';
+  }
+  rows.innerHTML=rl;
+
+  var comps=[
+    {
+      name:'CollectionStore',
+      files:'lib/storage.ts · lib/collection.ts',
+      body:'<p>Holds the user\'s sets and derives the flattened parts pool by aggregating quantities across sets on <code>(partNum, colorId)</code>. That aggregation is what lets two sets of the same colour combine into a usable quantity.</p><p>This is the <b>only</b> persistent copy of the collection anywhere in the system.</p>',
+      prd:'prd.md &gt; The collection · Adding a set'
+    },
+    {
+      name:'SetField',
+      files:'components/SetField.tsx · app/api/sets/route.ts',
+      body:'<p>The dedicated set field. Posts to <code>/api/sets</code>, shows a spinner, then either confirms with the set name and both counts, or draws an inline red line under the input with the typed text preserved.</p><p>Duplicate set numbers are rejected client-side before the request goes out.</p>',
+      prd:'prd.md &gt; Adding a set · States and Boundaries'
+    },
+    {
+      name:'ChatPanel',
+      files:'components/ChatPanel.tsx · MessageList.tsx · IdeaCard.tsx',
+      body:'<p>Posts <code>{messages, inventory}</code> and renders a stream of five event types: <code>text</code>, <code>ideas</code>, <code>build</code>, <code>kernel</code>, <code>error</code>. Clicking an idea card sends its title as a plain user message — no special path.</p>',
+      prd:'prd.md &gt; Asking for ideas · Refining'
+    },
+    {
+      name:'validateBuild',
+      files:'validate/validateBuild.ts',
+      body:'<p>The most important file in the repo and the only one with real test coverage. Pure, no I/O, seven ordered rules over an integer voxel grid: known part, known colour, quantity, bounds, overlap, support, grounded.</p><p>Returns violations as data. Never throws.</p>',
+      prd:'prd.md &gt; The inventory guarantee'
+    },
+    {
+      name:'mcp/tools.ts',
+      files:'mcp/tools.ts · server.ts · stdio.ts',
+      body:'<p>Five plain functions, no MCP imports. <code>server.ts</code> wraps them over an <code>InMemoryTransport</code> bound to one request\'s inventory; <code>stdio.ts</code> wraps the same functions over stdio for Claude Code.</p><p><code>propose_ideas</code> exists because the PRD requires three <b>clickable</b> rows, and parsing markdown out of prose breaks the first time Claude rephrases.</p>',
+      prd:'prd.md &gt; Asking for ideas'
+    },
+    {
+      name:'The agent loop',
+      files:'lib/loop.ts',
+      body:'<p>Six turns maximum. Each turn streams the response, collects tool calls, executes them through <code>mcpClient.callTool</code>, and feeds the results back as a user turn.</p><p>If turn six still fails validation, the three-strike rule drops the violating bricks and renders the rest.</p>',
+      prd:'prd.md &gt; The inventory guarantee'
+    },
+    {
+      name:'BuildCanvas',
+      files:'components/BuildCanvas.tsx · scene/brickGeometry.ts',
+      body:'<p>Bricks sorted by <code>y</code> and revealed on a 25ms interval, so the model assembles bottom-up. Geometry is built once per distinct part shape and cached — rebuilding per brick would tank the frame rate at 200 bricks.</p><p>Beveled body, cylindrical studs, genuine angled faces on slopes. This is what makes it read as LEGO on video.</p>',
+      prd:'prd.md &gt; Designing in 3D'
+    },
+    {
+      name:'KernelStrip',
+      files:'components/KernelStrip.tsx',
+      body:'<p>Two states. Verified: green dot, the promise, <code>47 / 612</code> in mono. Violation: red bar, the specific complaint, and a count — "red 2×4 — design uses 4, you own 2 (3 problems)". Returns to green on the next passing validation.</p><p>The second number is the buildable count, with a tooltip explaining why it\'s lower than the box.</p>',
+      prd:'prd.md &gt; The inventory guarantee'
+    }
+  ];
+
+  var tabs=document.getElementById('tabs'), panel=document.getElementById('panel');
+  comps.forEach(function(c,i){
+    var b=document.createElement('button');
+    b.type='button'; b.textContent=c.name; b.setAttribute('aria-pressed', i===0?'true':'false');
+    b.addEventListener('click', function(){ pick(i); });
+    tabs.appendChild(b);
+  });
+  function pick(i){
+    [].forEach.call(tabs.children, function(el,j){ el.setAttribute('aria-pressed', j===i?'true':'false'); });
+    var c=comps[i];
+    panel.innerHTML='<span class="fname">'+c.files+'</span>'+c.body+'<div class="prd">'+c.prd+'</div>';
+  }
+  pick(0);
+
+  document.querySelectorAll('details').forEach(function(d,i){ if(i>1) d.open=false; });
+})();
+</script>
+</body>
+</html>

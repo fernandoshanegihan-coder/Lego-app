@@ -1,0 +1,459 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Brickbrain — Scope</title>
+<style>
+  :root{
+    --bg:#12141a; --panel:#1b1f27; --panel-2:#222732; --line:#313846;
+    --ink:#e8ecf3; --ink-dim:#9aa5b8; --ink-faint:#6b7688;
+    --yellow:#ffd814; --red:#e3000b; --blue:#006db7; --green:#4fd18b;
+    --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    margin:0; background:var(--bg); color:var(--ink);
+    font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,Helvetica,Arial,sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:1080px;margin:0 auto;padding:0 24px 96px}
+
+  /* ---------- header ---------- */
+  header{padding:56px 0 36px;border-bottom:1px solid var(--line);margin-bottom:44px}
+  .eyebrow{font:600 12px/1 var(--mono);letter-spacing:.16em;text-transform:uppercase;color:var(--yellow)}
+  h1{font-size:clamp(34px,6vw,56px);line-height:1.05;margin:18px 0 10px;letter-spacing:-.02em}
+  h1 .dot{color:var(--yellow)}
+  .tagline{font-size:19px;color:var(--ink-dim);max-width:62ch;margin:0 0 22px}
+  .badges{display:flex;flex-wrap:wrap;gap:8px}
+  .badge{
+    font:600 11px/1 var(--mono);letter-spacing:.08em;text-transform:uppercase;
+    padding:7px 11px;border-radius:999px;border:1px solid var(--line);background:var(--panel);color:var(--ink-dim);
+  }
+  .badge.live{border-color:#3d5a45;background:#182a20;color:var(--green)}
+  .badge.canon{border-color:#5a4a1a;background:#2a2412;color:var(--yellow)}
+
+  /* ---------- sections ---------- */
+  section{margin:0 0 52px}
+  h2{
+    font:600 13px/1 var(--mono);letter-spacing:.15em;text-transform:uppercase;color:var(--ink-faint);
+    margin:0 0 18px;display:flex;align-items:center;gap:12px;
+  }
+  h2::after{content:"";flex:1;height:1px;background:var(--line)}
+  h3{font-size:20px;margin:30px 0 12px;letter-spacing:-.01em}
+  p{margin:0 0 14px;max-width:74ch}
+  .dim{color:var(--ink-dim)}
+  strong{color:#fff;font-weight:600}
+
+  /* ---------- kernel callout ---------- */
+  .kernel{
+    border:1px solid #4a3f12;background:linear-gradient(180deg,#2a2411,#1d1a0e);
+    border-radius:14px;padding:26px 28px;margin:0 0 20px;
+  }
+  .kernel .label{font:700 11px/1 var(--mono);letter-spacing:.16em;text-transform:uppercase;color:var(--yellow)}
+  .kernel p{font-size:19px;color:#fff;margin:12px 0 0;max-width:70ch}
+  .kernel .sub{font-size:15px;color:var(--ink-dim);margin-top:12px}
+
+  /* ---------- cards ---------- */
+  .grid{display:grid;gap:14px}
+  .g2{grid-template-columns:repeat(auto-fit,minmax(300px,1fr))}
+  .g3{grid-template-columns:repeat(auto-fit,minmax(230px,1fr))}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:20px 22px}
+  .card h4{margin:0 0 8px;font-size:15px;letter-spacing:-.01em}
+  .card p{margin:0;font-size:14.5px;color:var(--ink-dim)}
+  .card .k{font:700 11px/1 var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--yellow);display:block;margin-bottom:9px}
+
+  /* ---------- figure ---------- */
+  figure{margin:0;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:22px 18px 12px;overflow-x:auto}
+  figcaption{font:12px/1.5 var(--mono);color:var(--ink-faint);padding:10px 6px 8px;letter-spacing:.04em}
+  svg{display:block;width:100%;height:auto;min-width:700px}
+  .bx{fill:var(--panel-2);stroke:var(--line);stroke-width:1.5}
+  .bx-hi{fill:#20252f;stroke:var(--yellow);stroke-width:2}
+  .bx-key{fill:#241f0d;stroke:var(--yellow);stroke-width:2}
+  .t{fill:var(--ink);font:600 14px -apple-system,BlinkMacSystemFont,"Segoe UI",Inter,sans-serif}
+  .t-s{fill:var(--ink-dim);font:400 12px -apple-system,BlinkMacSystemFont,"Segoe UI",Inter,sans-serif}
+  .t-m{fill:var(--ink-faint);font:600 11px ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.1em}
+  .t-k{fill:var(--yellow);font:700 12px ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.1em}
+  .ln{stroke:var(--ink-faint);stroke-width:1.5;fill:none}
+  .ln-hi{stroke:var(--yellow);stroke-width:2;fill:none}
+  .ln-dash{stroke:var(--ink-faint);stroke-width:1.5;stroke-dasharray:5 4;fill:none}
+  .lbl{fill:var(--ink-faint);font:11px ui-monospace,SFMono-Regular,Menlo,monospace}
+
+  /* ---------- tables ---------- */
+  table{width:100%;border-collapse:collapse;font-size:14.5px;margin:0 0 8px}
+  th{text-align:left;font:600 11px/1 var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--ink-faint);padding:0 14px 10px 0;border-bottom:1px solid var(--line)}
+  td{padding:12px 14px 12px 0;border-bottom:1px solid var(--line);vertical-align:top}
+  tr:last-child td{border-bottom:none}
+  td code,code{font:12.5px var(--mono);background:#0e1015;border:1px solid var(--line);padding:1.5px 5px;border-radius:5px;color:#cfe0ff}
+  .yes{color:var(--green)} .no{color:var(--red)}
+
+  /* ---------- reveals ---------- */
+  details{background:var(--panel);border:1px solid var(--line);border-radius:12px;margin-bottom:10px;overflow:hidden}
+  details[open]{border-color:#3c4454}
+  summary{
+    cursor:pointer;list-style:none;padding:16px 20px;font-weight:600;font-size:15px;
+    display:flex;align-items:center;gap:12px;user-select:none;
+  }
+  summary::-webkit-details-marker{display:none}
+  summary::before{content:"+";font:700 16px var(--mono);color:var(--yellow);width:14px}
+  details[open] summary::before{content:"–"}
+  summary:hover{background:var(--panel-2)}
+  summary .hint{margin-left:auto;font:400 12px var(--mono);color:var(--ink-faint)}
+  .reveal-body{padding:2px 20px 18px 46px}
+  .reveal-body li{margin-bottom:7px;color:var(--ink-dim)}
+  .reveal-body li b{color:var(--ink);font-weight:600}
+  .tag{font:600 10.5px var(--mono);letter-spacing:.08em;text-transform:uppercase;padding:3px 7px;border-radius:4px;background:#0e1015;border:1px solid var(--line);color:var(--ink-faint);margin-left:8px}
+  .tag.in{color:var(--green);border-color:#2f5a44}
+  .tag.later{color:#e2b33c;border-color:#5a4a1a}
+  .tag.cut{color:#ff7a80;border-color:#5a2226}
+
+  /* ---------- controls ---------- */
+  .control{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:22px}
+  .control-row{display:flex;align-items:center;gap:18px;flex-wrap:wrap}
+  .control-row label{font:600 12px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--ink-faint)}
+  input[type=range]{flex:1;min-width:220px;accent-color:var(--yellow)}
+  .readout{font:700 15px var(--mono);color:var(--yellow);white-space:nowrap}
+  .out{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-top:18px}
+  .out .cell{background:var(--panel-2);border:1px solid var(--line);border-radius:10px;padding:14px}
+  .out .cell .k{font:600 10.5px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--ink-faint);display:block;margin-bottom:6px}
+  .out .cell .v{font:700 19px var(--mono);color:#fff}
+
+  .stepper{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px}
+  .stepper button{
+    font:600 12.5px var(--mono);letter-spacing:.04em;padding:9px 13px;border-radius:8px;cursor:pointer;
+    background:var(--panel-2);border:1px solid var(--line);color:var(--ink-dim);transition:.14s;
+  }
+  .stepper button:hover{border-color:#48526a;color:var(--ink)}
+  .stepper button[aria-pressed=true]{background:var(--yellow);border-color:var(--yellow);color:#1a1500}
+  .step-body{background:var(--panel-2);border:1px solid var(--line);border-radius:10px;padding:18px 20px;min-height:104px}
+  .step-body .n{font:700 11px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--yellow);display:block;margin-bottom:8px}
+  .step-body p{margin:0;color:var(--ink-dim);font-size:14.5px}
+  .step-body p b{color:#fff}
+
+  /* ---------- demo ---------- */
+  .beat{background:#241f0d;border:1px solid var(--yellow);border-radius:12px;padding:20px 22px;margin-top:16px}
+  .beat .k{font:700 11px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--yellow);display:block;margin-bottom:9px}
+  .beat p{margin:0;font-size:16px;color:#fff}
+
+  footer{border-top:1px solid var(--line);padding-top:24px;font:12.5px/1.7 var(--mono);color:var(--ink-faint)}
+  footer a{color:var(--ink-dim)}
+  .note{font-size:13.5px;color:var(--ink-faint);font-style:italic}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <div class="eyebrow">Build With AI: Basics &nbsp;·&nbsp; Scope</div>
+  <h1>Brickbrain<span class="dot">.</span></h1>
+  <p class="tagline">Ask an AI what you can build from the LEGO sets you already own, and watch it design it in 3D — using only the exact bricks you have.</p>
+  <div class="badges">
+    <span class="badge live">Status · approved</span>
+    <span class="badge">MCP integration</span>
+    <span class="badge">No sign-ups</span>
+    <span class="badge">Rebrickable API</span>
+    <span class="badge">Three.js</span>
+    <span class="badge canon">scope.md is canonical</span>
+  </div>
+</header>
+
+<section>
+  <div class="kernel">
+    <span class="label">The unique kernel</span>
+    <p>The app cannot show a brick the user doesn't own. Every brick is validated against their inventory before it renders — and if the model cheats, the offending brick is dropped rather than displayed.</p>
+    <p class="sub">A design that looks right but uses parts you don't own is worthless to the person trying to build it. This project doesn't ask Claude for a build — it asks for one <em>constrained to a specific pile of bricks</em>, then proves it.</p>
+  </div>
+</section>
+
+<section>
+  <h2>Who it's for</h2>
+  <div class="grid g2">
+    <div class="card">
+      <span class="k">The audience</span>
+      <h4>Creative students who want to build something new</h4>
+      <p>They own LEGO sets — or the parts from sets they've taken apart — and want to make something original without spending money on more bricks.</p>
+    </div>
+    <div class="card">
+      <span class="k">The problem today</span>
+      <h4>The parts list costs more than the hobby is worth</h4>
+      <p>They scroll BrickLink for parts, assemble something in their head, or abandon the idea entirely. A student who can't afford the parts for a design is exactly the person for whom "build it with what you own" is the difference between making something and not.</p>
+    </div>
+    <div class="card">
+      <span class="k">No account needed</span>
+      <h4>No Anthropic account, no subscription</h4>
+      <p>The chat lives in the page. The user never leaves the site for claude.ai, and never has to sign up for anything.</p>
+    </div>
+    <div class="card">
+      <span class="k">Cost to us</span>
+      <h4>Sub-dollar at demo scale</h4>
+      <p>Rebrickable is free even commercially. Haiku 5.5 runs ≈ $0.001 per design request; a full hackathon demo lands around $1 on Haiku, $25 on Sonnet.</p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>The core loop</h2>
+  <figure>
+    <svg viewBox="0 0 1040 300" role="img" aria-label="Core loop: enter set number, parts pool grows, Claude suggests ideas, user picks one, 3D model appears">
+      <!-- step boxes -->
+      <rect class="bx"    x="20"  y="46" width="180" height="76" rx="11"/>
+      <rect class="bx"    x="230" y="46" width="180" height="76" rx="11"/>
+      <rect class="bx-hi" x="440" y="46" width="180" height="76" rx="11"/>
+      <rect class="bx"    x="650" y="46" width="180" height="76" rx="11"/>
+      <rect class="bx"    x="860" y="46" width="160" height="76" rx="11"/>
+
+      <text class="t-m" x="34"  y="70">STEP 1</text>
+      <text class="t"   x="34"  y="92">Enter set</text>
+      <text class="t"   x="34"  y="110">number</text>
+
+      <text class="t-m" x="244" y="70">STEP 2</text>
+      <text class="t"   x="244" y="92">Parts pool</text>
+      <text class="t"   x="244" y="110">grows</text>
+
+      <text class="t-m" x="454" y="70">STEP 3</text>
+      <text class="t"   x="454" y="92">Claude</text>
+      <text class="t"   x="454" y="110">suggests</text>
+
+      <text class="t-m" x="664" y="70">STEP 4</text>
+      <text class="t"   x="664" y="92">User picks</text>
+      <text class="t"   x="664" y="110">one → design</text>
+
+      <text class="t-m" x="874" y="70">STEP 5</text>
+      <text class="t"   x="874" y="92">3D model</text>
+      <text class="t"   x="874" y="110">on canvas</text>
+
+      <!-- arrows -->
+      <path class="ln" d="M200 84 H224"/><path class="ln" d="M220 78 L228 84 L220 90"/>
+      <path class="ln" d="M410 84 H434"/><path class="ln" d="M430 78 L438 84 L430 90"/>
+      <path class="ln-hi" d="M620 84 H644"/><path class="ln-hi" d="M640 78 L648 84 L640 90"/>
+      <path class="ln" d="M830 84 H854"/><path class="ln" d="M850 78 L858 84 L850 90"/>
+
+      <!-- refine loop -->
+      <path class="ln-dash" d="M940 122 V168 H530 V128"/>
+      <path class="ln-dash" d="M524 136 L530 126 L536 136"/>
+      <text class="lbl" x="700" y="186">refine in plain language — “make it taller”</text>
+
+      <!-- kernel bar -->
+      <rect class="bx-key" x="20" y="224" width="1000" height="56" rx="11"/>
+      <text class="t-k" x="40" y="248">THE KERNEL</text>
+      <text class="t"   x="40" y="268">A brick you don't own can never be displayed — enforced in three layers.</text>
+    </svg>
+    <figcaption>Fig. 1 — The loop the user actually walks. Step 3 is where Claude's own judgment does the creative work; the kernel below it holds every step accountable.</figcaption>
+  </figure>
+</section>
+
+<section>
+  <h2>How it works</h2>
+  <figure>
+    <svg viewBox="0 0 1040 440" role="img" aria-label="Architecture: browser to backend, backend to Anthropic API and MCP server, MCP server to Rebrickable API">
+      <!-- browser -->
+      <rect class="bx" x="20" y="46" width="250" height="190" rx="12"/>
+      <text class="t-m" x="38" y="70">YOUR PAGE · BROWSER</text>
+      <rect class="bx" x="40" y="86" width="210" height="52" rx="8"/>
+      <text class="t" x="56" y="110">3D canvas</text><text class="t-s" x="56" y="128">Three.js · stud grid</text>
+      <rect class="bx" x="40" y="150" width="210" height="52" rx="8"/>
+      <text class="t" x="56" y="174">Chat panel</text><text class="t-s" x="56" y="192">user's sets → localStorage</text>
+
+      <!-- backend -->
+      <rect class="bx-hi" x="380" y="46" width="250" height="300" rx="12"/>
+      <text class="t-m" x="398" y="70">YOUR BACKEND · NODE</text>
+      <rect class="bx" x="400" y="86" width="210" height="76" rx="8"/>
+      <text class="t" x="416" y="110">Holds the API keys</text>
+      <text class="t-s" x="416" y="128">never sent to the page</text>
+      <text class="t-s" x="416" y="146">proxy · tool runner</text>
+      <rect class="bx" x="400" y="176" width="210" height="64" rx="8"/>
+      <text class="t" x="416" y="200">Tool logic</text>
+      <text class="t-s" x="416" y="218">transport-agnostic</text>
+      <text class="t-s" x="416" y="234">MCP is the transport,</text>
+      <text class="t-s" x="416" y="250">not the logic</text>
+      <rect class="bx" x="400" y="254" width="210" height="76" rx="8"/>
+      <text class="t" x="416" y="278">Fallback</text>
+      <text class="t-s" x="416" y="296">one line switches to</text>
+      <text class="t-s" x="416" y="312">plain tool use</text>
+
+      <!-- anthropic -->
+      <rect class="bx" x="760" y="40" width="260" height="104" rx="12"/>
+      <text class="t-m" x="778" y="64">ANTHROPIC API</text>
+      <text class="t" x="778" y="88">Claude</text>
+      <text class="t-s" x="778" y="108">Messages API + MCP toolset</text>
+      <text class="t-s" x="778" y="126">model: Haiku 5.5 / Sonnet 5</text>
+
+      <!-- mcp -->
+      <rect class="bx-hi" x="760" y="170" width="260" height="132" rx="12"/>
+      <text class="t-m" x="778" y="194">MCP SERVER</text>
+      <text class="t-s" x="778" y="214">get_set_parts</text>
+      <text class="t-s" x="778" y="232">list_my_parts</text>
+      <text class="t-s" x="778" y="250">validate_build</text>
+      <text class="t-s" x="778" y="268">save_build</text>
+      <text class="t-s" x="778" y="288" fill="#ffd814">→ also a Claude Code server</text>
+
+      <!-- rebrickable -->
+      <rect class="bx" x="760" y="328" width="260" height="80" rx="12"/>
+      <text class="t-m" x="778" y="352">REBRICKABLE API</text>
+      <text class="t" x="778" y="376">LEGO parts catalog</text>
+      <text class="t-s" x="778" y="394">free · ~1 req/sec · attribute it</text>
+
+      <!-- arrows -->
+      <path class="ln-hi" d="M270 141 H374"/><path class="ln-hi" d="M366 135 L376 141 L366 147"/>
+      <text class="lbl" x="272" y="131">POST /api/chat</text>
+
+      <path class="ln-dash" d="M270 200 H374"/><path class="ln-dash" d="M366 194 L376 200 L366 206"/>
+      <text class="lbl" x="276" y="190">render bricks</text>
+
+      <path class="ln" d="M630 92 H754"/><path class="ln" d="M746 86 L756 92 L746 98"/>
+      <text class="lbl" x="636" y="82">messages</text>
+      <path class="ln" d="M754 116 H634"/><path class="ln" d="M642 110 L632 116 L642 122"/>
+      <text class="lbl" x="640" y="136">tool call</text>
+
+      <path class="ln-hi" d="M630 236 H754"/><path class="ln-hi" d="M746 230 L756 236 L746 242"/>
+      <text class="lbl" x="636" y="226">tool result</text>
+
+      <path class="ln" d="M890 302 V322"/><path class="ln" d="M884 314 L890 324 L896 314"/>
+      <text class="lbl" x="900" y="318">set parts</text>
+    </svg>
+    <figcaption>Fig. 2 — The browser never talks to Anthropic directly. If it did, anyone could open the page, view-source, and spend your API key.</figcaption>
+  </figure>
+</section>
+
+<section>
+  <h2>Build size scales with the pool</h2>
+  <div class="control">
+    <div class="control-row">
+      <label for="sets">Sets in collection</label>
+      <input type="range" id="sets" min="1" max="8" value="1" step="1" />
+      <span class="readout" id="setsOut">1 set</span>
+    </div>
+    <div class="out">
+      <div class="cell"><span class="k">Target build</span><span class="v" id="sizeOut">Small</span></div>
+      <div class="cell"><span class="k">Bricks — low</span><span class="v" id="loOut">30</span></div>
+      <div class="cell"><span class="k">Bricks — high</span><span class="v" id="hiOut">60</span></div>
+      <div class="cell"><span class="k">Est. cost / build</span><span class="v" id="costOut">$0.0008</span></div>
+    </div>
+    <p class="note" style="margin:16px 0 0">These numbers go straight into the prompt that tells Claude how big to aim. Slide to see the rule the build actually uses. Cost is one design request on Haiku 5.5 — ~4,000 input tokens for the parts list, ~18 output tokens per brick.</p>
+  </div>
+</section>
+
+<section>
+  <h2>What working looks like</h2>
+  <div class="stepper" id="stepper" role="group" aria-label="Demo script"></div>
+  <div class="step-body" id="stepBody"></div>
+  <div class="beat">
+    <span class="k">The “oh, that's cool” beat</span>
+    <p>Watching the build assemble itself in 3D, knowing it was composed from nothing but their own pile.</p>
+  </div>
+</section>
+
+<section>
+  <h2>Boundaries</h2>
+
+  <details open>
+    <summary>Now — in the proof of concept <span class="tag in">building now</span></summary>
+    <div class="reveal-body"><ul>
+      <li><b>Enter a set number</b> → fetch and save that set's parts from Rebrickable</li>
+      <li><b>A growing collection</b> — the parts pool is the union of every set added</li>
+      <li><b>No accounts, no database</b> — collections live in the browser</li>
+      <li><b>Embedded Claude chat</b> wired to the tools through an MCP server</li>
+      <li><b>Claude suggests ideas</b> grounded in the actual inventory</li>
+      <li><b>3D rendering</b> — procedural brick geometry on a stud grid</li>
+      <li><b>Three-layer enforcement</b> — prompt contains only your parts; <code>validate_build</code> checks every brick; invalid bricks are dropped</li>
+      <li><b>Self-correction</b> — <code>validate_build</code> returns errors as a tool result, so Claude fixes its own design</li>
+      <li><b>Parts-used counter</b> — “47 of 312”</li>
+      <li><b>Plain-language refinement</b> — “make it taller” <span class="tag later">first to drop if long</span></li>
+      <li><b>Honest limits</b> — when parts can't make a good build, Claude says so and offers what is possible</li>
+    </ul></div>
+  </details>
+
+  <details>
+    <summary>Later — worth doing, not now <span class="tag later">after the demo</span></summary>
+    <div class="reveal-body"><ul>
+      <li><b>Register the MCP server with Claude Code and claude.ai</b> — top stretch item; roughly a config file and a README section</li>
+      <li><b>Real accounts</b> and cloud-synced collections</li>
+      <li><b>Usage caps / paid tier</b> once traffic makes the API bill real</li>
+      <li><b>More part geometries</b> — slopes, wedges, round bricks, printed parts</li>
+      <li><b>Export</b> parts list and build instructions as a PDF</li>
+      <li><b>“Buy the missing parts”</b> — surface BrickLink / BrickOwl links for shortfalls</li>
+      <li><b>Multiple designs per conversation</b> — explore alternatives side by side</li>
+      <li><b>Deployment</b> — optional for the hackathon</li>
+    </ul></div>
+  </details>
+
+  <details>
+    <summary>Cut — named, with reasons <span class="tag cut">not in this build</span></summary>
+    <div class="reveal-body"><ul>
+      <li><b>Image-to-brick generation</b> — photo → mosaic, photo → sculpture. A proof of concept does one thing deeply; converting a photo into a brick layout is a computer-vision problem in its own right. Claude composes the model instead.</li>
+      <li><b>PDF build guides, parts lists, GIF export</b> — not needed to prove the kernel or the core loop. A design the user can see, spin around, and build from is the whole point.</li>
+      <li><b>User accounts / sign-in</b> — confirmed: “I don't want sign ups.” No auth provider, no database, no per-user cost, less friction for a reviewer — which matters when the audience is students.</li>
+      <li><b>claude.ai as the chat client</b> — “The user doesn't need to go to claude.ai.” Free to us, but it breaks the core requirement and takes the user off the site.</li>
+      <li><b>Multi-user database</b> — browser storage only.</li>
+      <li><b>Pricing, payments, purchase flows</b> — out of scope for a proof of concept.</li>
+    </ul></div>
+  </details>
+</section>
+
+<section>
+  <h2>Submission requirements this plan has to satisfy</h2>
+  <table>
+    <thead><tr><th>Requirement</th><th>Status</th></tr></thead>
+    <tbody>
+      <tr><td>Public repo with all source, assets, and run instructions</td><td class="dim">planned</td></tr>
+      <tr><td>Open-source license file, visible at the top of the repo page</td><td class="dim">planned — a <code>LICENSE</code> file at the root</td></tr>
+      <tr><td>Planning docs in the repo: <code>scope.md</code>, <code>prd.md</code>, <code>spec.md</code></td><td class="dim"><b class="yes">in progress</b> — scope done, PRD and spec follow</td></tr>
+      <tr><td>Demo video under 3 minutes, public on YouTube or Vimeo</td><td class="dim">planned</td></tr>
+      <tr><td>Text description: what it does, who it's for, why it matters</td><td class="dim">planned</td></tr>
+      <tr><td>No third-party trademarks without permission</td><td class="dim">plan — a “LEGO® is a trademark of…” disclaimer, the conventional approach</td></tr>
+      <tr><td>Credit Rebrickable as the data source</td><td class="dim">plan — attribution line + footer</td></tr>
+    </tbody>
+  </table>
+  <p class="note" style="margin-top:14px">Judging is two stages. Stage one is a pass/fail gate on viability and on the planning docs being in the repo. Stage two scores four criteria equally: Design, Potential Impact, Innovation/Idea, Presentation. Judges are not required to run the project — the video may be the whole submission.</p>
+</section>
+
+<footer>
+  <p>Markdown is canonical — <code>devpost/scope.md</code> is the document of record. This page is a visual companion.</p>
+  <p>Regenerated after each revision. Last synced with the draft scope.</p>
+</footer>
+
+</div>
+
+<script>
+(function(){
+  /* ---- build-size slider: the actual rule the prompt uses ---- */
+  var s=document.getElementById('sets');
+  function sync(){
+    var n=+s.value;
+    var lo=30+(n-1)*30, hi=60+(n-1)*48;
+    document.getElementById('setsOut').textContent=n+(n===1?' set':' sets');
+    document.getElementById('sizeOut').textContent = n<=2?'Small':(n<=5?'Medium':'Large');
+    document.getElementById('loOut').textContent=lo;
+    document.getElementById('hiOut').textContent=hi;
+    var cost=(4000*0.10 + ((lo+hi)/2)*18*0.50)/1e6;
+    document.getElementById('costOut').textContent='$'+cost.toFixed(4);
+  }
+  s.addEventListener('input',sync); sync();
+
+  /* ---- demo stepper ---- */
+  var steps=[
+    ['Open','Someone opens the site and sees an <b>empty 3D brick canvas</b> next to a chat panel.'],
+    ['Set number','They type <b>21328</b> and press enter. Their parts load in and the pool grows as they add more sets.'],
+    ['Ask','They ask <b>“what can I build with these?”</b> Claude replies with a few ideas grounded in the actual parts — a small house, a little car, something that fits those specific bricks.'],
+    ['Pick','They click one. Claude designs it and calls <b>validate_build</b>, which returns any errors so Claude fixes its own design.'],
+    ['The beat','<b>The bricks start appearing in the 3D view, one layer at a time</b>, and they can spin it around. A counter reads <b>“47 of 312 bricks used”</b> — every one from a set they actually own.'],
+    ['Refine','They say <b>“make it taller”</b> in plain language, and the design updates.'],
+    ['The proof','If the model reaches for a brick they don’t have, the app catches it: the model fixes it, or the brick is dropped — and the count still reconciles against real inventory.']
+  ];
+  var wrap=document.getElementById('stepper'), body=document.getElementById('stepBody');
+  steps.forEach(function(st,i){
+    var b=document.createElement('button');
+    b.type='button'; b.textContent=st[0]; b.setAttribute('aria-pressed',i===0?'true':'false');
+    b.addEventListener('click',function(){ pick(i); });
+    wrap.appendChild(b);
+  });
+  function pick(i){
+    [].forEach.call(wrap.children,function(c,j){ c.setAttribute('aria-pressed', j===i?'true':'false'); });
+    body.innerHTML='<span class="n">Step '+(i+1)+' of '+steps.length+' · '+steps[i][0]+'</span><p>'+steps[i][1]+'</p>';
+  }
+  pick(0);
+})();
+</script>
+</body>
+</html>
