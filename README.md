@@ -29,6 +29,7 @@ npm run dev                    # http://localhost:3000
 |---|---|---|
 | `REBRICKABLE_API_KEY` | [rebrickable.com/register](https://rebrickable.com/register/) → [rebrickable.com/api](https://rebrickable.com/api/) → *Generate API Token* | yes, unlimited for this use |
 | `GEMINI_API_KEY` | [aistudio.google.com/apikey](https://aistudio.google.com/apikey) → *Create API key* | yes, no credit card |
+| `OPENROUTER_API_KEY` | [openrouter.ai/keys](https://openrouter.ai/keys) → *Create key* | optional — a **fallback** provider, see below |
 
 `.env.local` is gitignored. Never commit a key.
 
@@ -80,8 +81,13 @@ a support orphans what it carried) and renders what remains — still legal.
 
 **The provider.** Google's Gemini free tier (`lib/gemini.ts`), with a model
 chain and retry because the free tier congests: a 503 means "try the next
-model", not "the app is broken". The agent loop, the tools and the validator
-are provider-independent.
+model", not "the app is broken". **OpenRouter is the fallback** — a second
+provider (`lib/openrouter.ts`), used only when Gemini's whole chain is
+exhausted, and only if `OPENROUTER_API_KEY` is set; without that key the app
+behaves exactly as if it did not exist. The agent loop, the tools and the
+validator are provider-independent: a provider is anything that can turn a
+system prompt, a history and a tool list into text, tool calls and tool
+results (`lib/provider.ts`).
 
 ---
 
@@ -94,7 +100,7 @@ app/
   page.tsx              the one page: toolbar + canvas + chat + kernel strip
 components/             ChatPanel · MessageList · IdeaCard · KernelStrip · BuildCanvas
 scene/                  brickGeometry (procedural LEGO) · BrickMesh · Scene
-lib/                    gemini (provider + prompt) · loop (agent loop) · sse · storage · collection
+lib/                    provider (the contract) · gemini · openrouter · loop (agent loop) · sse · storage · collection
 mcp/                    tools.ts (the five tools) · server.ts (in-process) · stdio.ts (for Claude Code)
 parts/                  normalize (Rebrickable → buildable parts) · categories · shapes
 rebrickable/            the HTTP client (throttled to ~1 req/s) and its error mapping

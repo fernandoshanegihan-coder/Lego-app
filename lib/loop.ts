@@ -6,29 +6,28 @@
  * `mcpClient.callTool`, so swapping the in-process server for a stdio
  * subprocess is a two-line change.
  *
+ * It is also provider-agnostic: it asks a `ChatProvider` for one turn and
+ * understands only text, tool calls and tool results. The provider list is
+ * tried in order — Gemini first, OpenRouter as the fallback when the free
+ * tier is congested.
+ *
  * Six-turn cap: after six turns without a converged answer, stop and say so
  * rather than spin. (The three-strike drop rule arrives with the design loop
  * in slice 5.)
- *
- * Provider: Google Gemini over REST (`streamGenerateContent?alt=sse`). Two
- * protocol details handled here, both load-bearing:
- *   - text deltas arrive as separate SSE chunks and are concatenated for the
- *     conversation copy, so history sees one part where the stream saw many;
- *   - thinking models return `thought` parts and `thoughtSignature` fields —
- *     thought parts are hidden from the chat, but every part is pushed back
- *     into `contents` VERBATIM (signatures included), which is what Gemini
- *     requires for multi-turn function calling.
  */
 import type { ChatEventHandler } from "@/lib/sse";
-import { MAX_TOKENS, streamGenerateContent, toFunctionDeclarations } from "@/lib/gemini";import { validateBuild } from "@/validate/validateBuild";
+import { validateBuild } from "@/validate/validateBuild";
 import type { PlacedBrick, Violation } from "@/lib/types";
 import type { ToolContext, AnthropicTool } from "@/mcp/tools";
+import type { ChatProvider, NeutralPart, Turn } from "@/lib/provider";
 
 export const MAX_TURNS = 6;
 
 export interface LoopOptions {
   /** The system prompt — built from this request's pool. */
   system: string;
+  /** Providers, in the order they should be tried. */
+  providers: ChatProvider[];
   /** Tool schemas from the MCP server's own listTools(). */
   tools: AnthropicTool[];
   /** Connected MCP client — never the server directly. */
@@ -39,130 +38,73 @@ export interface LoopOptions {
   /** History after the system prompt: the browser's message array. */
   messages: Array<{ role: "user" | "assistant"; content: string }>;
   emit: ChatEventHandler;
-  /**
-   * The provider call. Injectable so the loop can be tested without a
-   * network — the default is the real Gemini stream.
-   */
-  provider?: (body: unknown) => Promise<Response>;
-}
-
-interface Part {
-  text?: string;
-  thought?: boolean;
-  thoughtSignature?: string;
-  functionCall?: { name: string; args?: Record<string, unknown> };
-  [key: string]: unknown;
-}
-
-interface GenerateChunk {
-  candidates?: Array<{
-    content?: { parts?: Part[]; role?: string };
-    finishReason?: string;
-  }>;
-  promptFeedback?: { blockReason?: string };
 }
 
 export async function runLoop(opts: LoopOptions): Promise<void> {
-  const { system, tools, mcpClient, ctx, messages, emit } = opts;
-  const provider = opts.provider ?? streamGenerateContent;
+  const { system, providers, tools, mcpClient, ctx, messages, emit } = opts;
 
-  // browser history → Gemini turns: user stays, assistant is "model"
-  const conversation: Array<{ role: "user" | "model"; parts: Part[] }> = messages.map((m) => ({
+  // browser history → neutral turns: the user's message stays, the assistant
+  // becomes the model's turn.
+  const history: Turn[] = messages.map((m) => ({
     role: m.role === "assistant" ? "model" : "user",
-    parts: [{ text: m.content }],
+    parts: [{ kind: "text", text: m.content }],
   }));
 
-  const functionDeclarations = toFunctionDeclarations(tools);
-
   for (let turn = 1; turn <= MAX_TURNS; turn++) {
-    let res: Response;
-    try {
-      res = await provider({
-        systemInstruction: { parts: [{ text: system }] },
-        contents: conversation,
-        tools: [{ functionDeclarations }],
-        generationConfig: { maxOutputTokens: MAX_TOKENS },
-      });
-    } catch (err) {
-      // The provider died mid-conversation (rate limit, timeout, bad key).
-      // Stop the loop and KEEP what we have: a design the kernel already
-      // accepted is worth more than an error. The user still gets the reason.
+    // ---- one turn, trying each provider in turn ---------------------------
+    let parts: NeutralPart[] = [];
+    let responded = false;
+    let lastError: Error | null = null;
+
+    for (const provider of providers) {
+      const collected: NeutralPart[] = [];
+      try {
+        for await (const part of provider.stream({ system, history, tools })) {
+          if (part.kind === "text") emit({ type: "text", text: part.text });
+          collected.push(part);
+        }
+
+        // A turn with neither prose nor a tool call is a dead turn — the free
+        // tier does this under load. Try the next provider rather than ending
+        // the conversation with nothing.
+        const said = collected
+          .filter((p): p is Extract<NeutralPart, { kind: "text" }> => p.kind === "text")
+          .map((p) => p.text)
+          .join("")
+          .trim();
+        const asked = collected.some((p) => p.kind === "toolCall");
+        if (!said && !asked) {
+          lastError = new Error("The model returned an empty response.");
+          continue;
+        }
+
+        parts = collected;
+        responded = true;
+        break;
+      } catch (err) {
+        lastError = err instanceof Error ? err : new Error(String(err));
+      }
+    }
+
+    if (!responded) {
+      // Every provider failed. The user gets one plain line; the page survives.
       emit({
         type: "error",
-        message: err instanceof Error ? err.message : "The model stopped responding.",
+        message: lastError?.message ?? "The model stopped responding.",
       });
       break;
     }
 
-    if (!res.ok || !res.body) {
-      const detail = await res.text().catch(() => "");
-      throw new Error(`The model request failed (${res.status}). ${detail.slice(0, 300)}`);
-    }
+    const toolCalls = parts.filter(
+      (p): p is Extract<NeutralPart, { kind: "toolCall" }> => p.kind === "toolCall",
+    );
+    if (toolCalls.length === 0) break; // plain reply — done
 
-    // One upstream SSE stream → accumulated parts + UI text deltas.
-    const accumulated: Part[] = [];
-    const calls: Array<{ name: string; args: Record<string, unknown> | undefined }> = [];
+    // The model's turn, verbatim (thought signatures and all).
+    history.push({ role: "model", parts });
 
-    const reader = res.body.getReader();
-    const decoder = new TextDecoder();
-    let buffer = "";
-
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      // Normalise CRLF so event boundaries are always "\n\n".
-      buffer += decoder.decode(value, { stream: true }).replace(/\r\n/g, "\n");
-      buffer = buffer.replace(/\r\n/g, "\n");
-
-      let sep: number;
-      while ((sep = buffer.indexOf("\n\n")) !== -1) {
-        const line = buffer.slice(0, sep);
-        buffer = buffer.slice(sep + 2);
-        if (!line.startsWith("data: ")) continue;
-
-        let chunk: GenerateChunk;
-        try {
-          chunk = JSON.parse(line.slice(6)) as GenerateChunk;
-        } catch {
-          continue; // torn chunk — skipped, not fatal
-        }
-
-        const blocked = chunk.promptFeedback?.blockReason;
-        if (blocked) throw new Error(`The model declined this request (${blocked}).`);
-
-        for (const part of chunk.candidates?.[0]?.content?.parts ?? []) {
-          if (part.thought) {
-            // Reasoning is not chat content, but it goes back into history.
-            accumulated.push(part);
-            continue;
-          }
-          if (typeof part.text === "string") {
-            // Collapse the stream's text fragments where history expects one part.
-            const prev = accumulated[accumulated.length - 1];
-            if (prev && typeof prev.text === "string" && !prev.thought) {
-              prev.text += part.text;
-            } else {
-              accumulated.push({ text: part.text });
-            }
-            emit({ type: "text", text: part.text });
-          } else if (part.functionCall) {
-            accumulated.push(part);
-            calls.push({ name: part.functionCall.name, args: part.functionCall.args });
-          } else {
-            accumulated.push(part);
-          }
-        }
-      }
-    }
-
-    if (calls.length === 0) break; // plain reply — conversation done
-
-    // Model turn verbatim (signatures preserved), then one user turn with
-    // every function response — Gemini's multi-turn function-calling shape.
-    conversation.push({ role: "model", parts: accumulated });
-
-    const responses: Part[] = [];
-    for (const call of calls) {
+    const results: NeutralPart[] = [];
+    for (const call of toolCalls) {
       let payload: unknown;
       try {
         const raw = await mcpClient.callTool({
@@ -183,9 +125,9 @@ export async function runLoop(opts: LoopOptions): Promise<void> {
       // Every tool call has a UI consequence — decided here, once.
       emitToolEvents(call.name, ctx, emit);
 
-      responses.push({ functionResponse: { name: call.name, response: { result: payload } } });
+      results.push({ kind: "toolResult", id: call.id, name: call.name, response: payload });
     }
-    conversation.push({ role: "user", parts: responses });
+    history.push({ role: "user", parts: results });
   }
 
   // ---- The three-strike rule ---------------------------------------------

@@ -5,6 +5,7 @@ import { applyDropRule, runLoop } from "@/lib/loop";
 import { validateBuild } from "@/validate/validateBuild";
 import { TOOLS, type ToolContext } from "@/mcp/tools";
 import type { ChatEvent } from "@/lib/sse";
+import type { ChatProvider, ProviderRequest } from "@/lib/provider";
 
 /**
  * The three-strike rule is the backstop under the product's central claim:
@@ -118,37 +119,39 @@ describe("applyDropRule — the three-strike backstop", () => {
  * thrown. A thrown error would end the conversation; a returned one lets the
  * model fix itself.
  */
-function sse(body: unknown): string {
-  return `data: ${JSON.stringify(body)}\n\n`;
-}
-
-function chunkWith(parts: unknown[]): string {
-  return sse({ candidates: [{ content: { parts } }] });
-}
 
 describe("runLoop — a failing tool call does not end the loop", () => {
   it("hands the error back to the model and carries on to a saved build", async () => {
     const ctx: ToolContext = { pool, sets: [] };
     const events: ChatEvent[] = [];
-    const bodies: unknown[] = [];
+    const requests: ProviderRequest[] = [];
 
     const bricks = [brick({ id: "b1" }), brick({ id: "b2", x: 4 })];
 
     // Turn 1: call validate_build — the tool call FAILS (schema rejection).
     // Turn 2: the model calls validate_build again — this time it works.
     // Turn 3: the model calls save_build. Turn 4: it talks.
-    const responses = [
-      chunkWith([{ functionCall: { name: "validate_build", args: { bricks } } }]),
-      chunkWith([{ functionCall: { name: "validate_build", args: { bricks } } }]),
-      chunkWith([{ functionCall: { name: "save_build", args: { name: "Test Build", bricks } } }]),
-      chunkWith([{ text: "All done." }]),
-    ];
-
     let call = 0;
-    const provider = async (body: unknown) => {
-      bodies.push(body);
-      const payload = responses[Math.min(call++, responses.length - 1)];
-      return new Response(payload, { headers: { "Content-Type": "text/event-stream" } });
+    const provider: ChatProvider = {
+      id: "fake",
+      label: "Fake",
+      models: ["fake"],
+      async *stream(request) {
+        requests.push(request);
+        const turn = call++;
+        if (turn === 0 || turn === 1) {
+          yield { kind: "toolCall", id: `c${turn}`, name: "validate_build", args: { bricks } };
+        } else if (turn === 2) {
+          yield {
+            kind: "toolCall",
+            id: "c2",
+            name: "save_build",
+            args: { name: "Test Build", bricks },
+          };
+        } else {
+          yield { kind: "text", text: "All done." };
+        }
+      },
     };
 
     // The first tool call fails the way a schema rejection would.
@@ -167,17 +170,16 @@ describe("runLoop — a failing tool call does not end the loop", () => {
 
     await runLoop({
       system: "test",
+      providers: [provider],
       tools: [],
       mcpClient,
       ctx,
       messages: [{ role: "user", content: "build a tower" }],
       emit: (e) => events.push(e),
-      provider,
     });
 
     // The failure came back to the model as a tool result, not a crash.
-    const secondBody = JSON.stringify(bodies[1] ?? "");
-    expect(secondBody).toContain("schema rejected");
+    expect(JSON.stringify(requests[1]?.history ?? [])).toContain("schema rejected");
 
     // The loop continued: the retry validated, and the build was saved.
     const kernel = events.find((e) => e.type === "kernel");

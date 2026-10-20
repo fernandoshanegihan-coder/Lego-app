@@ -208,6 +208,14 @@ Activity mode: [live app and editor, explicit static fallback, focused alternati
   between `validate_build` (which passed) and `save_build`, throwing away a design the kernel had
   already accepted. The provider call is now caught per turn: the loop stops, the user gets one
   honest line, and the three-strike fallback still delivers the validated build.
+- **Second provider: OpenRouter as a fallback.** The learner's request. The loop no longer speaks
+  Gemini's wire format: `lib/provider.ts` defines one contract (system prompt + history + tools →
+  text, tool calls, tool results), `lib/gemini.ts` and `lib/openrouter.ts` each implement it, and
+  the loop tries them in order. OpenRouter only exists if `OPENROUTER_API_KEY` is set, so with no
+  key the app behaves exactly as before. The refactor surfaced two Gemini-3 rules the loop had been
+  breaking: a `functionResponse` must be an object (not a string), and a `functionCall` must carry
+  its `thought_signature` back on the next turn — both are now handled and covered by tests.
+  An empty (degenerate) model turn is also treated as a failed attempt rather than an answer.
 
 Pending doc polish (ship stage): regenerate `scope.html` / `spec.html` from their Markdown so the rendered
 artifacts carry the provider note; README must credit Rebrickable and document `GEMINI_API_KEY`.

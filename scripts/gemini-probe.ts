@@ -8,7 +8,7 @@
  * Run: npx tsx scripts/gemini-probe.ts
  */
 import { readFileSync } from "node:fs";
-import { MODEL, toFunctionDeclarations } from "@/lib/gemini";
+import { MODEL_CHAIN, toFunctionDeclarations } from "@/lib/gemini";
 import type { AnthropicTool } from "@/mcp/tools";
 
 // tsx doesn't load .env.local the way Next does — do it by hand.
@@ -61,7 +61,7 @@ const body = {
 
 async function main() {
   const models = process.argv.slice(2);
-  const list = models.length ? models : [MODEL];
+  const list = models.length ? models : [MODEL_CHAIN[0]];
 
   for (const model of list) {
     console.log(`\n===== ${model} =====`);

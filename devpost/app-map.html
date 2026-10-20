@@ -93,6 +93,10 @@
         <text x="464" y="58" font-weight="600">Gemini (free tier)</text>
         <text x="464" y="78" fill="#7a7263">model · tool calls</text>
 
+        <rect x="450" y="112" width="170" height="44" rx="10" fill="#fbf9f4" stroke="#e2dccf" stroke-dasharray="4 3" />
+        <text x="464" y="132" font-weight="600">OpenRouter</text>
+        <text x="464" y="149" fill="#7a7263">fallback provider</text>
+
         <rect x="680" y="30" width="200" height="70" rx="10" fill="#fbf9f4" stroke="#e2dccf" />
         <text x="694" y="58" font-weight="600">Rebrickable API</text>
         <text x="694" y="78" fill="#7a7263">sets · parts · colours</text>
@@ -114,6 +118,7 @@
           <path d="M305 165 V120 H360 V104" />
           <path d="M160 190 H106 V104" />
           <path d="M500 104 V160" />
+          <path d="M390 134 H444" />
         </g>
         <g font-size="11" fill="#7a7263">
           <text x="168" y="58">POST</text>
@@ -173,7 +178,8 @@
       <tr><td>which parts may enter the collection</td><td><span class="mono">parts/categories.ts</span></td><td>one allowlist of category names; a part outside it can never be claimed or drawn</td></tr>
       <tr><td>how a part's size is read from its name</td><td><span class="mono">parts/normalize.ts</span> (parseDimensions)</td><td>one parser decides the w×d footprint</td></tr>
       <tr><td>the rules a design must pass</td><td><span class="mono">validate/validateBuild.ts</span></td><td>the seven rules, in order, in one pure function</td></tr>
-      <tr><td>the model, or the fallback when the free tier is busy</td><td><span class="mono">lib/gemini.ts</span> (MODEL_CHAIN)</td><td>the chain is walked in order; 503 means "try the next"</td></tr>
+      <tr><td>the model, or the fallback when the free tier is busy</td><td><span class="mono">lib/gemini.ts</span> (MODEL_CHAIN), <span class="mono">lib/openrouter.ts</span></td><td>the chain is walked in order; 503 means "try the next", and OpenRouter is the fallback provider</td></tr>
+      <tr><td>what a provider has to be able to do</td><td><span class="mono">lib/provider.ts</span></td><td>one contract: turn a system prompt, a history and tools into text, tool calls and tool results</td></tr>
       <tr><td>what the model is told</td><td><span class="mono">lib/gemini.ts</span> (systemPrompt)</td><td>the inventory block and the design rules live in one string</td></tr>
       <tr><td>the tools the model can call</td><td><span class="mono">mcp/tools.ts</span></td><td>the MCP server registers whatever is in <span class="mono">TOOLS</span> — both hosts, automatically</td></tr>
       <tr><td>how a brick looks</td><td><span class="mono">scene/brickGeometry.ts</span></td><td>body, studs and slope faces are built here, cached per shape</td></tr>
@@ -223,7 +229,9 @@
     <p>
       Part, set and colour data comes from the
       <a href="https://rebrickable.com/">Rebrickable API</a> (free, credited as their terms require).
-      The model provider is Google's Gemini API on its free tier. Your collection is stored only in
+      The model provider is Google's Gemini API on its free tier, with OpenRouter
+      as an optional fallback provider (it takes over only when Gemini's free tier
+      is congested, and only if its key is set). Your collection is stored only in
       your browser's <span class="mono">localStorage</span> and is sent to the server with each chat
       request; the server keeps none of it.
     </p>

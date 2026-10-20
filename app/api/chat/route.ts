@@ -1,6 +1,9 @@
 import { z } from "zod";
 import { encodeSse, type ChatEvent, type ChatEventHandler } from "@/lib/sse";
-import { geminiKey, systemPrompt, currentDesignBlock, MissingGeminiKeyError } from "@/lib/gemini";
+import { systemPrompt, currentDesignBlock } from "@/lib/gemini";
+import { geminiProvider } from "@/lib/gemini";
+import { openRouterProvider } from "@/lib/openrouter";
+import type { ChatProvider } from "@/lib/provider";
 import { runLoop } from "@/lib/loop";
 import { createChatMcp } from "@/mcp/server";
 import { aggregate } from "@/lib/collection";
@@ -63,6 +66,20 @@ const bodySchema = z.object({
   inventory: z.array(storedSetSchema).max(20),
   currentBuild: z.array(currentBuildSchema).max(500).optional(),
 });
+
+/**
+ * The providers to try, in order.
+ *
+ * Gemini first — it is the primary. OpenRouter is the fallback for when the
+ * free tier is congested (503s), and only exists if its key is set: with no
+ * key the app behaves exactly as it did before OpenRouter was added.
+ */
+function buildProviders(): ChatProvider[] {
+  const providers: ChatProvider[] = [];
+  if (process.env.GEMINI_API_KEY) providers.push(geminiProvider);
+  if (process.env.OPENROUTER_API_KEY) providers.push(openRouterProvider);
+  return providers;
+}
 
 /**
  * A POST handler that streams events. The response helper keeps the route a
@@ -134,11 +151,12 @@ export async function POST(req: Request) {
     });
   }
 
-  if (!process.env.GEMINI_API_KEY) {
+  if (!process.env.GEMINI_API_KEY && !process.env.OPENROUTER_API_KEY) {
     return sseResponse(async (send) => {
       send({
         type: "error",
-        message: "The Gemini key isn't configured on this server. Add GEMINI_API_KEY to .env.local and reload.",
+        message:
+          "No model key is configured on this server. Add GEMINI_API_KEY (or OPENROUTER_API_KEY) to .env.local and reload.",
       });
     });
   }
@@ -155,6 +173,7 @@ export async function POST(req: Request) {
     try {
       await runLoop({
         system: systemPrompt(pool) + currentDesignBlock(currentBuild ?? []),
+        providers: buildProviders(),
         tools: mcp.anthropicTools,
         mcpClient: mcp.client,
         ctx,
