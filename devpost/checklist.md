@@ -31,7 +31,7 @@ Build mode: fast — chosen at first session (learner is agent-experienced and d
   field shows its name with two counts and the summary updates.
   Commit: `Set field fetches real set parts and fills the collection`
 
-- [ ] **2. The collection survives a reload**
+- [x] **2. The collection survives a reload**
   Becomes usable: Sets added before refresh are still there afterward — summary and counts intact. The only
   persistent user data in the entire system.
   Why now: Persistence is the first place the data model can be wrong, and finding that out now is cheap.
