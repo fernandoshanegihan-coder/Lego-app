@@ -13,7 +13,7 @@
  * `gemini-3.5-flash` answered in ~7s and called the tools correctly;
  * `gemini-3.1-flash-lite` (~4s) is the fast fallback.
  */
-import type { Pool } from "@/lib/types";
+import type { Pool, PlacedBrick } from "@/lib/types";
 import type { AnthropicTool } from "@/mcp/tools";
 
 export const MODEL_CHAIN = ["gemini-3.5-flash", "gemini-3.1-flash-lite"] as const;
@@ -74,6 +74,12 @@ export async function streamGenerateContent(body: unknown): Promise<Response> {
           // Free-tier congestion: try the next model immediately.
           continue;
         }
+        if (res.status === 400 || res.status === 401 || res.status === 403) {
+          // The key itself is wrong — retrying another model won't help.
+          throw new Error(
+            "The model key was rejected. Check GEMINI_API_KEY in .env.local and reload.",
+          );
+        }
         throw new Error(`The model request failed (${res.status}). ${lastDetail}`);
       } catch (err) {
         if (err instanceof Error && err.name === "AbortError") {
@@ -88,7 +94,7 @@ export async function streamGenerateContent(body: unknown): Promise<Response> {
   }
 
   throw new Error(
-    `The model is busy right now (free-tier demand). Try again in a minute. ${lastDetail}`,
+    "The model is busy right now (free-tier demand). Try again in a minute.",
   );
 }
 
@@ -153,6 +159,21 @@ function sanitizeProps(props: unknown): Record<string, unknown> {
  * keeps the prompt bounded and says so when it trims.
  */
 const MAX_INVENTORY_ROWS = 200;
+
+/**
+ * The current design, so a refinement request ("make it taller") can edit the
+ * bricks that are already on the canvas instead of starting over.
+ */
+export function currentDesignBlock(bricks: PlacedBrick[]): string {
+  if (bricks.length === 0) return "";
+  const rows = bricks.map(
+    (b) => `${b.partNum}:${b.colorId} @ x=${b.x} y=${b.y} z=${b.z} rot=${b.rot}`,
+  );
+  return `
+CURRENT DESIGN (already on the user's canvas — edit these bricks when they ask for a change, then validate and save the whole new design):
+${rows.join("\n")}
+`;
+}
 
 export function systemPrompt(pool: Pool): string {
   const entries = [...pool.values()].sort((a, b) => b.quantity - a.quantity);

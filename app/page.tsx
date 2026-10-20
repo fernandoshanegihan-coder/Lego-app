@@ -13,7 +13,7 @@
 import { useEffect, useMemo, useState } from "react";
 import type { PlacedBrick, StoredSet } from "@/lib/types";
 import type { ChatEvent } from "@/lib/sse";
-import { loadCollection, saveCollection } from "@/lib/storage";
+import { loadCollection, saveCollection, onStorageWarning } from "@/lib/storage";
 import { addSet, aggregate } from "@/lib/collection";
 import { sampleBuild } from "@/lib/sampleBuild";
 import Toolbar from "@/components/Toolbar";
@@ -31,6 +31,11 @@ export default function Page() {
     used: 0,
     available: 0,
   });
+  const [storageNotice, setStorageNotice] = useState<string | null>(null);
+
+  // Storage can be unavailable (private mode, quota). The app still runs;
+  // the user gets one honest line instead of silent data loss.
+  useEffect(() => onStorageWarning((message) => setStorageNotice(message)), []);
 
   useEffect(() => {
     setSets(loadCollection());
@@ -90,6 +95,17 @@ export default function Page() {
     <div className="flex h-screen flex-col">
       <Toolbar sets={sets} onAddSet={(s) => setSets((prev) => addSet(prev, s))} />
 
+      {storageNotice && (
+        <p
+          className="border-b px-4 py-1.5 text-xs"
+          style={{ borderColor: "var(--edge)", background: "var(--bad-bg)", color: "var(--bad)" }}
+          role="status"
+          id="storage-notice"
+        >
+          {storageNotice}
+        </p>
+      )}
+
       <div className="min-h-0 flex flex-1">
         <div className="flex min-w-0 flex-1 flex-col">
           <BuildCanvas bricks={bricks} pool={pool} name={buildName} />
@@ -98,7 +114,7 @@ export default function Page() {
             available={buildable}
           />
         </div>
-        <ChatPanel sets={sets} onEvent={handleEvent} />
+        <ChatPanel sets={sets} currentBuild={bricks} onEvent={handleEvent} />
       </div>
     </div>
   );

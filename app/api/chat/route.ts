@@ -1,10 +1,10 @@
 import { z } from "zod";
 import { encodeSse, type ChatEvent, type ChatEventHandler } from "@/lib/sse";
-import { geminiKey, systemPrompt, MissingGeminiKeyError } from "@/lib/gemini";
+import { geminiKey, systemPrompt, currentDesignBlock, MissingGeminiKeyError } from "@/lib/gemini";
 import { runLoop } from "@/lib/loop";
 import { createChatMcp } from "@/mcp/server";
 import { aggregate } from "@/lib/collection";
-import type { StoredSet } from "@/lib/types";
+import type { PlacedBrick, StoredSet } from "@/lib/types";
 
 export const runtime = "nodejs";
 
@@ -37,6 +37,19 @@ const storedSetSchema = z.object({
   addedAt: z.number(),
 });
 
+/** The design already on the canvas, so a refinement can edit it. */
+const currentBuildSchema = z.object({
+  id: z.string(),
+  partNum: z.string(),
+  colorId: z.number().int(),
+  colorName: z.string(),
+  colorHex: z.string(),
+  x: z.number().int(),
+  y: z.number().int(),
+  z: z.number().int(),
+  rot: z.union([z.literal(0), z.literal(90), z.literal(180), z.literal(270)]),
+});
+
 const bodySchema = z.object({
   messages: z
     .array(
@@ -48,6 +61,7 @@ const bodySchema = z.object({
     .min(1)
     .max(40),
   inventory: z.array(storedSetSchema).max(20),
+  currentBuild: z.array(currentBuildSchema).max(500).optional(),
 });
 
 /**
@@ -94,11 +108,21 @@ export async function POST(req: Request) {
 
   const parsed = bodySchema.safeParse(body);
   if (!parsed.success) {
-    return Response.json({ error: "malformed-request", message: "Bad chat payload." }, { status: 400 });
+    // Say WHICH field failed — a developer running this needs that.
+    const issue = parsed.error.issues[0];
+    const where = issue?.path.length ? issue.path.join(".") : "body";
+    return Response.json(
+      {
+        error: "malformed-request",
+        message: `Bad chat payload (${where}: ${issue?.message ?? "invalid"}).`,
+      },
+      { status: 400 },
+    );
   }
-  const { messages, inventory } = parsed.data as {
+  const { messages, inventory, currentBuild } = parsed.data as {
     messages: Array<{ role: "user" | "assistant"; content: string }>;
     inventory: StoredSet[];
+    currentBuild?: PlacedBrick[];
   };
 
   const pool = aggregate(inventory);
@@ -130,7 +154,7 @@ export async function POST(req: Request) {
     const mcp = await createChatMcp(ctx);
     try {
       await runLoop({
-        system: systemPrompt(pool),
+        system: systemPrompt(pool) + currentDesignBlock(currentBuild ?? []),
         tools: mcp.anthropicTools,
         mcpClient: mcp.client,
         ctx,

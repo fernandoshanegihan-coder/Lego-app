@@ -45,9 +45,26 @@ export async function POST(req: Request) {
   } catch (err) {
     const e = err as Error & { code?: string; status?: number };
     const status = e.status ?? 500;
-    return NextResponse.json(
-      { error: e.code ?? "network", message: e.message },
-      { status },
-    );
+    // A sentence the user can act on, not a status code.
+    const message = friendlySetError(e.code, e.message);
+    return NextResponse.json({ error: e.code ?? "network", message }, { status });
+  }
+}
+
+/** `spec.md > Important Failure Modes` — every Rebrickable failure, in words. */
+function friendlySetError(code: string | undefined, fallback: string): string {
+  switch (code) {
+    case "no-such-set":
+      return "No set with that number.";
+    case "bad-key":
+      return "Rebrickable rejected the API key — check REBRICKABLE_API_KEY in .env.local.";
+    case "rate-limited":
+      return "Rebrickable is rate-limiting us. Give it a second and try again.";
+    case "network":
+      return "Could not reach Rebrickable. Check your connection and try again.";
+    case "unconfigured":
+      return "REBRICKABLE_API_KEY is not set on this server.";
+    default:
+      return fallback;
   }
 }

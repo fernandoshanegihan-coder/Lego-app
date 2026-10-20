@@ -7,19 +7,44 @@
  */
 import { COLLECTION_KEY, type StoredSet } from "@/lib/types";
 
-/** Warn once if persistence is unavailable (private mode, quota exceeded). */
-let warned = false;
+/** Warn once per distinct problem if persistence is unavailable. */
+const warned = new Set<string>();
+const listeners = new Set<(message: string) => void>();
+
+/**
+ * The UI can show the "your collection won't survive a reload" notice —
+ * `prd.md > States and Boundaries`: a one-line notice appears once.
+ */
+export function onStorageWarning(listener: (message: string) => void): () => void {
+  listeners.add(listener);
+  return () => listeners.delete(listener);
+}
+
 function warnOnce(message: string) {
-  if (!warned) {
-    warned = true;
-    console.warn(`[brickbrain] ${message}`);
+  if (warned.has(message)) return;
+  warned.add(message);
+  console.warn(`[brickbrain] ${message}`);
+  for (const listener of listeners) listener(message);
+}
+
+/**
+ * The browser's storage, or null when there is none (server rendering, or a
+ * browser that refuses to expose it). Reading `localStorage` can itself throw
+ * in some private modes, so even the lookup is guarded.
+ */
+function storage(): Storage | null {
+  try {
+    return typeof localStorage !== "undefined" ? localStorage : null;
+  } catch {
+    return null;
   }
 }
 
 export function loadCollection(): StoredSet[] {
-  if (typeof window === "undefined") return [];
+  const store = storage();
+  if (!store) return [];
   try {
-    const raw = window.localStorage.getItem(COLLECTION_KEY);
+    const raw = store.getItem(COLLECTION_KEY);
     if (!raw) return [];
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
@@ -37,9 +62,10 @@ export function loadCollection(): StoredSet[] {
 }
 
 export function saveCollection(sets: StoredSet[]): void {
-  if (typeof window === "undefined") return;
+  const store = storage();
+  if (!store) return;
   try {
-    window.localStorage.setItem(COLLECTION_KEY, JSON.stringify(sets));
+    store.setItem(COLLECTION_KEY, JSON.stringify(sets));
   } catch {
     warnOnce(
       "The collection could not be saved (storage unavailable or full). " +

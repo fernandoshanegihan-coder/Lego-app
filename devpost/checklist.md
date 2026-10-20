@@ -119,7 +119,7 @@ Build mode: fast — chosen at first session (learner is agent-experienced and d
   and spin it.
   Commit: `Procedural brick geometry with staged reveal`
 
-- [ ] **7. Refine in plain language and handle every failure without breaking the page**
+- [x] **7. Refine in plain language and handle every failure without breaking the page**
   Becomes usable: The full journey holds under abuse: "make it taller" redesigns and revalidates; a bad set
   number draws the inline error; an API failure produces one line in the chat with the page intact; a set with
   nothing renderable is refused with an honest message; localStorage-unavailable degrades gracefully.
@@ -184,6 +184,10 @@ Activity mode: [live app and editor, explicit static fallback, focused alternati
   demo hook instead assembles a small legal build FROM THE USER'S OWN COLLECTION
   (`lib/sampleBuild.ts`), so it can never show a brick the user doesn't have — the same rule the
   product makes everywhere else. It is also a deterministic shot for the demo video.
+- **A dead provider no longer loses a good design.** The free tier's 503 could kill the request
+  between `validate_build` (which passed) and `save_build`, throwing away a design the kernel had
+  already accepted. The provider call is now caught per turn: the loop stops, the user gets one
+  honest line, and the three-strike fallback still delivers the validated build.
 
 Pending doc polish (ship stage): regenerate `scope.html` / `spec.html` from their Markdown so the rendered
 artifacts carry the provider note; README must credit Rebrickable and document `GEMINI_API_KEY`.

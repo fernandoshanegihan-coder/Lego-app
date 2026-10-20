@@ -39,6 +39,11 @@ export interface LoopOptions {
   /** History after the system prompt: the browser's message array. */
   messages: Array<{ role: "user" | "assistant"; content: string }>;
   emit: ChatEventHandler;
+  /**
+   * The provider call. Injectable so the loop can be tested without a
+   * network — the default is the real Gemini stream.
+   */
+  provider?: (body: unknown) => Promise<Response>;
 }
 
 interface Part {
@@ -59,6 +64,7 @@ interface GenerateChunk {
 
 export async function runLoop(opts: LoopOptions): Promise<void> {
   const { system, tools, mcpClient, ctx, messages, emit } = opts;
+  const provider = opts.provider ?? streamGenerateContent;
 
   // browser history → Gemini turns: user stays, assistant is "model"
   const conversation: Array<{ role: "user" | "model"; parts: Part[] }> = messages.map((m) => ({
@@ -69,12 +75,24 @@ export async function runLoop(opts: LoopOptions): Promise<void> {
   const functionDeclarations = toFunctionDeclarations(tools);
 
   for (let turn = 1; turn <= MAX_TURNS; turn++) {
-    const res = await streamGenerateContent({
-      systemInstruction: { parts: [{ text: system }] },
-      contents: conversation,
-      tools: [{ functionDeclarations }],
-      generationConfig: { maxOutputTokens: MAX_TOKENS },
-    });
+    let res: Response;
+    try {
+      res = await provider({
+        systemInstruction: { parts: [{ text: system }] },
+        contents: conversation,
+        tools: [{ functionDeclarations }],
+        generationConfig: { maxOutputTokens: MAX_TOKENS },
+      });
+    } catch (err) {
+      // The provider died mid-conversation (rate limit, timeout, bad key).
+      // Stop the loop and KEEP what we have: a design the kernel already
+      // accepted is worth more than an error. The user still gets the reason.
+      emit({
+        type: "error",
+        message: err instanceof Error ? err.message : "The model stopped responding.",
+      });
+      break;
+    }
 
     if (!res.ok || !res.body) {
       const detail = await res.text().catch(() => "");

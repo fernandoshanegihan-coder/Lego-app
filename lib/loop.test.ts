@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 import type { PlacedBrick, Pool, PoolPart } from "@/lib/types";
 import { poolKey } from "@/lib/types";
-import { applyDropRule } from "@/lib/loop";
+import { applyDropRule, runLoop } from "@/lib/loop";
 import { validateBuild } from "@/validate/validateBuild";
+import { TOOLS, type ToolContext } from "@/mcp/tools";
+import type { ChatEvent } from "@/lib/sse";
 
 /**
  * The three-strike rule is the backstop under the product's central claim:
@@ -108,5 +110,82 @@ describe("applyDropRule — the three-strike backstop", () => {
     const outcome = applyDropRule(bricks, pool);
     expect(validateBuild(outcome.bricks, pool).ok).toBe(true);
     expect(outcome.bricks).toHaveLength(0);
+  });
+});
+
+/**
+ * The loop's contract: a failing tool call is RETURNED to the model, never
+ * thrown. A thrown error would end the conversation; a returned one lets the
+ * model fix itself.
+ */
+function sse(body: unknown): string {
+  return `data: ${JSON.stringify(body)}\n\n`;
+}
+
+function chunkWith(parts: unknown[]): string {
+  return sse({ candidates: [{ content: { parts } }] });
+}
+
+describe("runLoop — a failing tool call does not end the loop", () => {
+  it("hands the error back to the model and carries on to a saved build", async () => {
+    const ctx: ToolContext = { pool, sets: [] };
+    const events: ChatEvent[] = [];
+    const bodies: unknown[] = [];
+
+    const bricks = [brick({ id: "b1" }), brick({ id: "b2", x: 4 })];
+
+    // Turn 1: call validate_build — the tool call FAILS (schema rejection).
+    // Turn 2: the model calls validate_build again — this time it works.
+    // Turn 3: the model calls save_build. Turn 4: it talks.
+    const responses = [
+      chunkWith([{ functionCall: { name: "validate_build", args: { bricks } } }]),
+      chunkWith([{ functionCall: { name: "validate_build", args: { bricks } } }]),
+      chunkWith([{ functionCall: { name: "save_build", args: { name: "Test Build", bricks } } }]),
+      chunkWith([{ text: "All done." }]),
+    ];
+
+    let call = 0;
+    const provider = async (body: unknown) => {
+      bodies.push(body);
+      const payload = responses[Math.min(call++, responses.length - 1)];
+      return new Response(payload, { headers: { "Content-Type": "text/event-stream" } });
+    };
+
+    // The first tool call fails the way a schema rejection would.
+    let failed = false;
+    const mcpClient = {
+      callTool: async ({ name, arguments: args }: { name: string; arguments?: Record<string, unknown> }) => {
+        if (name === "validate_build" && !failed) {
+          failed = true;
+          throw new Error("schema rejected: bricks must be an array");
+        }
+        const tool = TOOLS.find((t) => t.name === name);
+        if (!tool) throw new Error(`unknown tool ${name}`);
+        return tool.run(args, ctx);
+      },
+    };
+
+    await runLoop({
+      system: "test",
+      tools: [],
+      mcpClient,
+      ctx,
+      messages: [{ role: "user", content: "build a tower" }],
+      emit: (e) => events.push(e),
+      provider,
+    });
+
+    // The failure came back to the model as a tool result, not a crash.
+    const secondBody = JSON.stringify(bodies[1] ?? "");
+    expect(secondBody).toContain("schema rejected");
+
+    // The loop continued: the retry validated, and the build was saved.
+    const kernel = events.find((e) => e.type === "kernel");
+    expect(kernel).toBeDefined();
+    expect((kernel as { ok: boolean }).ok).toBe(true);
+
+    const build = events.find((e) => e.type === "build");
+    expect(build).toBeDefined();
+    expect((build as { bricks: PlacedBrick[] }).bricks).toHaveLength(2);
   });
 });

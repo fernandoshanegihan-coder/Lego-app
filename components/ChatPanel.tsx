@@ -11,15 +11,18 @@
  * wordings; the chat lives in memory and is lost on reload, by design.
  */
 import { useEffect, useRef, useState } from "react";
-import type { StoredSet } from "@/lib/types";
+import type { PlacedBrick, StoredSet } from "@/lib/types";
 import type { ChatEvent, Idea } from "@/lib/sse";
 import { MessageList, type ChatMessage } from "@/components/MessageList";
 
 export default function ChatPanel({
   sets,
+  currentBuild,
   onEvent,
 }: {
   sets: StoredSet[];
+  /** The design on the canvas, so a refinement edits it instead of starting over. */
+  currentBuild?: PlacedBrick[];
   /** build + kernel events are consumed by the canvas and the strip. */
   onEvent?: (event: ChatEvent) => void;
 }) {
@@ -63,7 +66,11 @@ export default function ChatPanel({
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: history, inventory: sets }),
+        body: JSON.stringify({
+          messages: history,
+          inventory: sets,
+          currentBuild: currentBuild ?? [],
+        }),
       });
 
       if (!res.ok || !res.body) {
