@@ -54,6 +54,9 @@ export const poolKey = (partNum: string, colorId: number) => `${partNum}:${color
 /**
  * A placed brick. Coordinates are integers: x and z in studs, y in PLATES.
  * A brick occupies `w × d` studs and `h` plates, rotated by `rot` degrees.
+ *
+ * `w`/`d`/`h` are NOT on this type: the pool entry is the source of truth for
+ * a part's size, so the model can only choose where and how to rotate.
  */
 export interface PlacedBrick {
   id: string;
@@ -66,6 +69,12 @@ export interface PlacedBrick {
   z: number;
   rot: 0 | 90 | 180 | 270;
 }
+
+/** A brick as the model sends it: ids and hex may be missing. */
+export type ModelBrick = Omit<PlacedBrick, "id" | "colorHex"> & {
+  id?: string;
+  colorHex?: string;
+};
 
 export interface BuildResult {
   ok: boolean;

@@ -271,8 +271,12 @@ describe("buildSchema", () => {
     expect(() => placedBrickSchema.parse({ ...good, colorHex: "red" })).toThrow();
   });
 
-  it("rejects a missing id", () => {
+  it("accepts a brick with no id — the server numbers them", () => {
     const { id, ...rest } = good;
-    expect(() => placedBrickSchema.parse(rest)).toThrow();
+    expect(() => placedBrickSchema.parse(rest)).not.toThrow();
+  });
+
+  it("rejects an empty id", () => {
+    expect(() => placedBrickSchema.parse({ ...good, id: "" })).toThrow();
   });
 });

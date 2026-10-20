@@ -20,7 +20,8 @@
  *     requires for multi-turn function calling.
  */
 import type { ChatEventHandler } from "@/lib/sse";
-import { MODEL, MAX_TOKENS, streamGenerateContent, toFunctionDeclarations } from "@/lib/gemini";
+import { MAX_TOKENS, streamGenerateContent, toFunctionDeclarations } from "@/lib/gemini";import { validateBuild } from "@/validate/validateBuild";
+import type { PlacedBrick, Violation } from "@/lib/types";
 import type { ToolContext, AnthropicTool } from "@/mcp/tools";
 
 export const MAX_TURNS = 6;
@@ -68,7 +69,7 @@ export async function runLoop(opts: LoopOptions): Promise<void> {
   const functionDeclarations = toFunctionDeclarations(tools);
 
   for (let turn = 1; turn <= MAX_TURNS; turn++) {
-    const res = await streamGenerateContent(MODEL, {
+    const res = await streamGenerateContent({
       systemInstruction: { parts: [{ text: system }] },
       contents: conversation,
       tools: [{ functionDeclarations }],
@@ -168,6 +169,70 @@ export async function runLoop(opts: LoopOptions): Promise<void> {
     }
     conversation.push({ role: "user", parts: responses });
   }
+
+  // ---- The three-strike rule ---------------------------------------------
+  // If the model never converged, the guarantee still holds: drop the
+  // offending bricks and render what remains. `spec.md > The agent loop`.
+  if (!ctx.savedBuild && ctx.lastBricks?.length) {
+    const outcome = applyDropRule(ctx.lastBricks, ctx.pool);
+    const result = validateBuild(outcome.bricks, ctx.pool);
+    emit({
+      type: "kernel",
+      ok: result.ok,
+      used: result.used,
+      available: result.available,
+      violations: result.ok ? undefined : outcome.violations,
+      dropped: outcome.dropped,
+    });
+    if (result.ok && result.used > 0) {
+      emit({
+        type: "build",
+        name: "Your build",
+        bricks: outcome.bricks,
+        used: result.used,
+        available: result.available,
+      });
+    }
+  }
+}
+
+interface DropOutcome {
+  bricks: PlacedBrick[];
+  dropped: number;
+  violations: Violation[];
+}
+
+/**
+ * Three passes: each one removes the bricks the kernel rejects, then
+ * re-validates what is left (removing a support brick can orphan the one
+ * above it). What survives is legal by construction.
+ *
+ * Exported so the backstop can be tested directly — this is the layer that
+ * makes the guarantee hold even when the model never converges.
+ */
+export function applyDropRule(
+  bricks: PlacedBrick[],
+  pool: ToolContext["pool"],
+): DropOutcome {
+  let kept = bricks;
+  let dropped = 0;
+  let violations: Violation[] = [];
+
+  for (let strike = 0; strike < 3; strike++) {
+    const result = validateBuild(kept, pool);
+    if (result.ok) return { bricks: kept, dropped, violations: [] };
+    violations = result.violations;
+    const bad = new Set(result.violations.map((v) => v.brickIndex));
+    kept = kept.filter((_, index) => !bad.has(index));
+    dropped += bad.size;
+  }
+
+  const final = validateBuild(kept, pool);
+  return {
+    bricks: final.ok ? kept : [],
+    dropped,
+    violations: final.ok ? [] : final.violations,
+  };
 }
 
 /** After each tool call, mirror the request-scoped outcomes to the browser. */

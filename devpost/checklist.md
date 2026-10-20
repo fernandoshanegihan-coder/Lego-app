@@ -83,7 +83,7 @@ Build mode: fast — chosen at first session (learner is agent-experienced and d
   your message. Watch for the greeting on first load.
   Commit: `Embedded chat over in-process MCP with three grounded ideas`
 
-- [ ] **5. Pick an idea and watch the self-correction loop produce a valid build**
+- [x] **5. Pick an idea and watch the self-correction loop produce a valid build**
   Becomes usable: Clicking an idea makes Claude design in grid coordinates, call `validate_build`, read the
   returned violations, edit itself, and return a build the browser counts against the pool. The kernel strip
   goes live: red with the specific violation, then green. The three-strike drop rule closes the guarantee.
@@ -171,6 +171,15 @@ Activity mode: [live app and editor, explicit static fallback, focused alternati
   bytes; `gemini-2.5-flash` is closed to new users. `gemini-3.6-flash` answers in ~3.5s and is the constant.
 - **Persona mentions of "Claude"/"Anthropic" in the PRD/scope are historical.** The grounded-chat
   behavior (three ideas, kernel, self-correction) is provider-independent; the built app uses Gemini.
+- **One model became a chain with retry.** The free tier congests: `gemini-3.5-flash` returned 503
+  "high demand" while `gemini-3.1-flash-lite` answered in 4s. `lib/gemini.ts` now walks a chain
+  (`3.5-flash` → `3.1-flash-lite`), retries once with backoff, and turns a persistent 503/429 into
+  one plain chat line instead of a spinner.
+- **The inventory now carries the colour id.** The model was guessing `colorId` values and produced
+  23 "isn't available in <colour>" violations per attempt. Rows are now `… | colour (colour id N) | qty`.
+- **An empty design is not a build.** A zero-brick list used to pass the kernel vacuously and produce
+  a build event with 0 bricks. `validate_build` and `save_build` now refuse an empty design, and the
+  three-strike fallback only emits a build when at least one brick survives.
 
 Pending doc polish (ship stage): regenerate `scope.html` / `spec.html` from their Markdown so the rendered
 artifacts carry the provider note; README must credit Rebrickable and document `GEMINI_API_KEY`.

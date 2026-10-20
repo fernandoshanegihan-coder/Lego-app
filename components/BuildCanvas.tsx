@@ -1,11 +1,22 @@
 "use client";
 
+import type { PlacedBrick } from "@/lib/types";
+
 /**
  * The 3D canvas — placeholder this slice, so the page reads as the product from
  * slice one. The warm surface + faint stud grid is CSS here; real geometry
  * arrives in slice 6.
+ *
+ * Slice 5 gives it the validated design, so the count appears the moment the
+ * kernel passes.
  */
-export default function BuildCanvas({ working }: { working: boolean }) {
+export default function BuildCanvas({
+  bricks,
+  name,
+}: {
+  bricks: PlacedBrick[];
+  name: string;
+}) {
   return (
     <div
       className="relative flex-1 overflow-hidden"
@@ -16,12 +27,23 @@ export default function BuildCanvas({ working }: { working: boolean }) {
       }}
       id="build-canvas"
     >
-      <span
-        className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-sm"
-        style={{ color: "var(--faint)" }}
-      >
-        {working ? "" : "Your build will assemble here"}
-      </span>
+      {bricks.length > 0 ? (
+        <span
+          className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-sm"
+          style={{ color: "var(--faint)" }}
+          id="canvas-summary"
+        >
+          {name ? `${name} — ` : ""}
+          {bricks.length.toLocaleString("en-US")} bricks ready
+        </span>
+      ) : (
+        <span
+          className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-sm"
+          style={{ color: "var(--faint)" }}
+        >
+          Your build will assemble here
+        </span>
+      )}
     </div>
   );
 }

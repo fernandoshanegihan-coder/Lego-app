@@ -14,11 +14,14 @@
 import { z } from "zod";
 
 export const placedBrickSchema = z.object({
-  id: z.string().min(1),
+  /** Optional: the server numbers the bricks when the model omits it. */
+  id: z.string().min(1).optional(),
   partNum: z.string().min(1),
   colorId: z.number().int(),
   colorName: z.string().min(1),
-  colorHex: z.string().regex(/^#[0-9A-Fa-f]{6}$/),
+  /** Optional: the server fills the real hex from the pool, so the model
+   *  never has to guess a colour code — but a wrong one is still rejected. */
+  colorHex: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional(),
   x: z.number().int(),
   y: z.number().int(),
   z: z.number().int(),

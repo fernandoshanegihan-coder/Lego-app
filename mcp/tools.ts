@@ -11,7 +11,7 @@
  * for Claude, structured events for the browser, one call each.
  */
 import { z } from "zod";
-import type { Pool, StoredSet } from "@/lib/types";
+import type { Pool, StoredSet, PlacedBrick, ModelBrick } from "@/lib/types";
 import { buildSchema } from "@/validate/buildSchema";
 import { validateBuild } from "@/validate/validateBuild";
 import { fetchSetNormalized } from "@/rebrickable/fetchSetNormalized";
@@ -36,7 +36,10 @@ export interface ToolContext {
   /** Outputs the loop turns into browser events. */
   ideas?: IdeaPair[];
   kernelResult?: KernelOutcome;
-  savedBuild?: { name: string; bricks: unknown[]; used: number; available: number };
+  savedBuild?: { name: string; bricks: PlacedBrick[]; used: number; available: number };
+  /** The last brick list the model proposed — the three-strike rule needs it
+   *  to drop the offending bricks when the model never converges. */
+  lastBricks?: PlacedBrick[];
 }
 
 export interface ToolResult {
@@ -104,7 +107,7 @@ export function listMyParts(args: unknown, ctx: ToolContext): ToolResult {
     .sort((a, b) => b.quantity - a.quantity)
     .map(
       (p) =>
-        `${p.partNum} | ${p.name} | ${p.w}×${p.d}×${p.h} | ${p.colorName}${p.isTrans ? " (trans)" : ""} | ${p.quantity}`,
+        `${p.partNum} | ${p.name} | ${p.w}×${p.d}×${p.h} | ${p.colorName} (colour id ${p.colorId})${p.isTrans ? " trans" : ""} | ${p.quantity}`,
     );
   const available = rows.reduce((sum, r) => sum + Number(r.match(/\| (\d+)$/)?.[1] ?? 0), 0);
   return ok(
@@ -115,8 +118,17 @@ export function listMyParts(args: unknown, ctx: ToolContext): ToolResult {
 }
 
 export function validateBuildTool(args: unknown, ctx: ToolContext): ToolResult {
-  const { bricks } = z.object(validateBuildShape).parse(args);
+  const parsed = z.object(validateBuildShape).parse(args);
+  if (parsed.bricks.length === 0) {
+    // An empty list is not a build. Say so plainly so the model tries again
+    // rather than treating a vacuous pass as success.
+    return bad(
+      "The design is empty — that is not a build. Call validate_build again with the actual bricks (at least 10), using the part numbers and colour ids from the inventory.",
+    );
+  }
+  const bricks = enrichBricks(parsed.bricks, ctx.pool);
   const result = validateBuild(bricks, ctx.pool);
+  ctx.lastBricks = bricks;
   ctx.kernelResult = {
     ok: result.ok,
     used: result.used,
@@ -124,19 +136,49 @@ export function validateBuildTool(args: unknown, ctx: ToolContext): ToolResult {
     violations: result.ok ? undefined : result.violations,
   };
   // Violations are RETURNED, not thrown — the model reads them and edits itself.
-  return ok(JSON.stringify(result, null, 2));
+  const summary = result.ok
+    ? `ok: true — all ${result.used} bricks are in the user's collection.`
+    : `ok: false — ${result.violations.length} problem(s):\n${result.violations
+        .map((v) => `- brick ${v.brickIndex}: ${v.detail}`)
+        .join("\n")}`;
+  return ok(`${summary}\n\n${JSON.stringify(result, null, 2)}`);
 }
 
 export function saveBuild(args: unknown, ctx: ToolContext): ToolResult {
-  const { name, bricks } = z.object(saveBuildShape).parse(args);
+  const parsed = z.object(saveBuildShape).parse(args);
+  if (parsed.bricks.length === 0) {
+    return bad("Nothing to save — the design has no bricks.");
+  }
+  const bricks = enrichBricks(parsed.bricks, ctx.pool);
   const result = validateBuild(bricks, ctx.pool);
   if (!result.ok) {
     return bad(
-      `Refusing to save — the build is not legal:\n${result.violations.map((v) => `- ${v.detail}`).join("\n")}`,
+      `Refusing to save — the build is not legal:\n${result.violations.map((v) => `- brick ${v.brickIndex}: ${v.detail}`).join("\n")}`,
     );
   }
-  ctx.savedBuild = { name, bricks, used: result.used, available: result.available };
-  return ok(`Saved "${name}" — ${result.used} bricks, every one verified against the inventory.`);
+  ctx.savedBuild = { name: parsed.name, bricks, used: result.used, available: result.available };
+  return ok(`Saved "${parsed.name}" — ${result.used} bricks, every one verified against the inventory.`);
+}
+
+/**
+ * Fill in what the model may leave out: brick ids, and the real colour hex
+ * (the pool knows it — the model shouldn't have to guess a colour code).
+ */
+function enrichBricks(bricks: ModelBrick[], pool: Pool): PlacedBrick[] {
+  return bricks.map((b, index) => {
+    const owned = pool.get(`${b.partNum}:${b.colorId}`);
+    return {
+      id: b.id ?? `b${index + 1}`,
+      partNum: b.partNum,
+      colorId: b.colorId,
+      colorName: b.colorName,
+      colorHex: owned?.colorHex ?? b.colorHex ?? "#c91a09",
+      x: b.x,
+      y: b.y,
+      z: b.z,
+      rot: b.rot,
+    };
+  });
 }
 
 export function proposeIdeas(args: unknown, ctx: ToolContext): ToolResult {

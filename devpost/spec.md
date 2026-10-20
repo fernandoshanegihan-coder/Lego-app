@@ -367,11 +367,14 @@ prompt is capped to the highest-quantity rows and says so. Measured during the b
 
 ### Model choice
 
-One constant in `lib/gemini.ts`. Current: **`gemini-3.6-flash`** — chosen by live test, not by brochure:
-`gemini-3.8-flash` was listed by the account but hung with zero bytes, and `gemini-2.5-flash` is closed to
-new users. The free tier costs nothing and needs no card; this task is constrained composition, and the
-validator catches what the model gets wrong — model quality is a soft constraint by design.
-Tested fallback: `gemini-3.1-flash-lite`, same REST shape, one line.
+A **chain**, not a single model, in `lib/gemini.ts`: `gemini-3.5-flash` first, `gemini-3.1-flash-lite`
+as the fast fallback. Chosen by live test, not by brochure — `gemini-3.8-flash` was listed by the
+account but hung with zero bytes, `gemini-2.5-flash` is closed to new users, and `gemini-3.6-flash`
+returned 503 "high demand" at the time of writing. The free tier congests, so a 503 or 429 means
+"try the next model", and two rounds of backoff turn persistent congestion into one plain chat line
+rather than a spinner. The free tier costs nothing and needs no card; this task is constrained
+composition, and the validator catches what the model gets wrong — model quality is a soft constraint
+by design.
 
 ## Data Model
 
