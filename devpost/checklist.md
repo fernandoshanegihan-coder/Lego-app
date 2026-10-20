@@ -44,7 +44,7 @@ Build mode: fast — chosen at first session (learner is agent-experienced and d
   Learner check: Add a set, refresh the page, and confirm the collection summary is unchanged.
   Commit: `Persist collection to localStorage`
 
-- [ ] **3. The kernel: a proposed build is accepted or rejected with named reasons**
+- [x] **3. The kernel: a proposed build is accepted or rejected with named reasons**
   Becomes usable: As a library — not on screen yet — a proposed brick list is checked in seven ordered rules
   against the user's pool, and violations come back as data with brick index, rule, and a human sentence.
   Why now: This is the unique kernel, and the skill ordering rule says it lands early, not last. It is also the

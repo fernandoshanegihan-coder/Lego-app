@@ -9,10 +9,10 @@
  * claimed by Claude or rendered.
  */
 import type {
-  PartCategory,
   StoredPart,
   StoredSet,
 } from "@/lib/types";
+import { HEIGHTS } from "@/parts/shapes";
 import { makeCategoryResolver, type CategoryLookup } from "@/parts/categories";
 import type {
   RebrickableInventoryItem,
@@ -49,7 +49,8 @@ export function parseDimensions(name: string): { w: number; d: number } | null {
 // Normalization
 // ---------------------------------------------------------------------------
 
-const HEIGHTS: Record<PartCategory, number> = { brick: 3, plate: 1, tile: 1, slope: 3 };
+// ---------------------------------------------------------------------------
+
 
 /** Category names that we haven't seen yet yet arrive on buildable-looking parts. */
 const reportedUnknownCategories = new Set<number>();
@@ -60,10 +61,12 @@ export interface NormalizeResult {
   excludedCategoryIds: number[];
 }
 
+export type CategoryResolver = (partCatId: number) => CategoryLookup;
+
 export function normalizeSet(
   setMeta: RebrickableSet,
   items: RebrickableInventoryItem[],
-  resolveCategory: CategoryLookup,
+  resolveCategory: CategoryResolver,
 ): NormalizeResult {
   const byCatId = new Map<number, CategoryLookup>();
   const lookup = (id: number) => {
