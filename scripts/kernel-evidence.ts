@@ -74,7 +74,7 @@ function show(label: string, result: { content: Array<{ text: string }>; isError
 console.log("Brickbrain — self-correction evidence (real validator, simulated model)");
 console.log(`pool: 3001 Brick 2 x 4 red x4 · 3020 Plate 2 x 4 yellow x12`);
 
-show("turn 1 — model calls validate_build (too many red bricks + a floating plate)", await validateBuildTool({ bricks: firstAttempt }, ctx));
+show("turn 1 — model calls validate_build (too many red bricks + a floating plate)", validateBuildTool({ bricks: firstAttempt }, ctx));
 
 // The model reads the violations and edits itself: drop the extra brick and
 // land the plate on the baseplate.
@@ -82,9 +82,9 @@ const fixed: PlacedBrick[] = firstAttempt
   .filter((b) => b.id !== "b5")
   .map((b) => (b.id === "b6" ? { ...b, y: 3 } : b));
 
-show("turn 2 — model calls validate_build again after its own edit", await validateBuildTool({ bricks: fixed }, ctx));
+show("turn 2 — model calls validate_build again after its own edit", validateBuildTool({ bricks: fixed }, ctx));
 
-const saved = await saveBuild({ name: "Evidence Build", bricks: fixed }, ctx);
+const saved = saveBuild({ name: "Evidence Build", bricks: fixed }, ctx);
 show("turn 3 — model calls save_build", saved);
 
 console.log(`\nkernel state: ${JSON.stringify(ctx.kernelResult)}`);
@@ -94,7 +94,7 @@ console.log(`saved build: ${ctx.savedBuild?.used} bricks, ${ctx.savedBuild?.bric
 // build, minus the offending bricks.
 const neverFixed: PlacedBrick[] = firstAttempt;
 const ctx2: ToolContext = { pool, sets: [] };
-validateBuildTool({ bricks: neverFixed }, ctx2).catch(() => {});
+validateBuildTool({ bricks: neverFixed }, ctx2);
 const survivors = ctx2.lastBricks!.filter((_, index) => index !== 4 && index !== 5);
 console.log(
   `\nthree-strike rule: a design with ${neverFixed.length} bricks that never converged keeps ${survivors.length} legal bricks.`,

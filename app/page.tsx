@@ -10,7 +10,7 @@
  * The kernel strip's state is also here: it is the product's central claim,
  * so it is surfaced rather than hidden (`prd.md > Product Decisions`).
  */
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { PlacedBrick, StoredSet } from "@/lib/types";
 import type { ChatEvent } from "@/lib/sse";
 import { loadCollection, saveCollection, onStorageWarning } from "@/lib/storage";
@@ -32,49 +32,10 @@ export default function Page() {
     available: 0,
   });
   const [storageNotice, setStorageNotice] = useState<string | null>(null);
-  const [source, setSource] = useState<"chat" | "mcp" | "demo">("chat");
-  const lastDesignAt = useRef<number>(0);
 
   // Storage can be unavailable (private mode, quota). The app still runs;
   // the user gets one honest line instead of silent data loss.
   useEffect(() => onStorageWarning((message) => setStorageNotice(message)), []);
-
-  // The collection's buildable total — the kernel strip's denominator.
-  const buildable = sets.reduce((s, set) => s + set.buildableParts, 0);
-
-  // Publish the collection to the local server, so an MCP server (Claude in
-  // claude.ai, or Claude Code) can design against the user's real parts.
-  useEffect(() => {
-    if (!hydrated) return;
-    void fetch("/api/collection", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ sets }),
-    }).catch(() => {
-      // The app still works; only the external design path is unavailable.
-    });
-  }, [sets, hydrated]);
-
-  // Watch for a design made by the MCP server and put it on the canvas.
-  useEffect(() => {
-    const timer = setInterval(() => {
-      void fetch("/api/designs")
-        .then((res) => res.json())
-        .then((data: { design: { name: string; bricks: PlacedBrick[]; used: number; at: number } | null }) => {
-          const design = data.design;
-          if (!design || design.at === lastDesignAt.current) return;
-          lastDesignAt.current = design.at;
-          setBricks(design.bricks);
-          setBuildName(design.name);
-          setSource("mcp");
-          setKernel({ status: "verified", used: design.used, available: buildable });
-        })
-        .catch(() => {
-          // ignore — the next tick tries again
-        });
-    }, 2000);
-    return () => clearInterval(timer);
-  }, [buildable]);
 
   useEffect(() => {
     setSets(loadCollection());
@@ -86,6 +47,8 @@ export default function Page() {
   useEffect(() => {
     if (hydrated) saveCollection(sets);
   }, [sets, hydrated]);
+
+  const buildable = sets.reduce((s, set) => s + set.buildableParts, 0);
 
   // The renderer resolves each brick's real size and colour from the pool —
   // the same source of truth the validator uses.
@@ -124,7 +87,6 @@ export default function Page() {
     if (event.type === "build") {
       setBricks(event.bricks as PlacedBrick[]);
       setBuildName(event.name);
-      setSource("chat");
       return;
     }
   }
@@ -146,7 +108,7 @@ export default function Page() {
 
       <div className="min-h-0 flex flex-1">
         <div className="flex min-w-0 flex-1 flex-col">
-          <BuildCanvas bricks={bricks} pool={pool} name={buildName} source={source} />
+          <BuildCanvas bricks={bricks} pool={pool} name={buildName} />
           <KernelStrip
             state={{ ...kernel, available: kernel.status === "idle" ? buildable : kernel.available }}
             available={buildable}

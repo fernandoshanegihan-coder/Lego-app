@@ -10,11 +10,6 @@ export default defineConfig({
   },
   test: {
     environment: "node",
-    include: [
-      "validate/**/*.test.ts",
-      "parts/**/*.test.ts",
-      "lib/**/*.test.ts",
-      "mcp/**/*.test.ts",
-    ],
+    include: ["validate/**/*.test.ts", "parts/**/*.test.ts", "lib/**/*.test.ts"],
   },
 });

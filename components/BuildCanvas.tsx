@@ -15,13 +15,10 @@ export default function BuildCanvas({
   bricks,
   pool,
   name,
-  source = "chat",
 }: {
   bricks: PlacedBrick[];
   pool: Pool;
   name: string;
-  /** Where the design came from — the in-app chat, or the MCP server. */
-  source?: "chat" | "mcp" | "demo";
 }) {
   const [revealed, setRevealed] = useState(0);
 
@@ -61,11 +58,6 @@ export default function BuildCanvas({
         >
           {name ? `${name} — ` : ""}
           {bricks.length.toLocaleString("en-US")} bricks
-          {source === "mcp" && (
-            <span className="ml-2 rounded px-1.5 py-0.5 align-middle" style={{ background: "var(--ok-bg)", color: "var(--ok)" }}>
-              via MCP
-            </span>
-          )}
         </span>
       )}
     </div>

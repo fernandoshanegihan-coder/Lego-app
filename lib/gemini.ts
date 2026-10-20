@@ -18,7 +18,6 @@
 import type { Pool, PlacedBrick } from "@/lib/types";
 import type { AnthropicTool } from "@/mcp/tools";
 import type { ChatProvider, NeutralPart, ProviderRequest, Turn } from "@/lib/provider";
-import { inventoryRows, DESIGN_RULES } from "@/lib/buildRules";
 
 export const MODEL_CHAIN = ["gemini-3.5-flash", "gemini-3.1-flash-lite"] as const;
 
@@ -256,6 +255,12 @@ function sanitizeProps(props: unknown): Record<string, unknown> {
 // ---------------------------------------------------------------------------
 
 /**
+ * Rows shown from the inventory. A five-set pool can reach ~400 rows; the cap
+ * keeps the prompt bounded and says so when it trims.
+ */
+const MAX_INVENTORY_ROWS = 200;
+
+/**
  * The current design, so a refinement request ("make it taller") can edit the
  * bricks that are already on the canvas instead of starting over.
  */
@@ -271,7 +276,18 @@ ${rows.join("\n")}
 }
 
 export function systemPrompt(pool: Pool): string {
-  const { rows, trimmed, totalBuildable } = inventoryRows(pool);
+  const entries = [...pool.values()].sort((a, b) => b.quantity - a.quantity);
+  const totalBuildable = entries.reduce((sum, p) => sum + p.quantity, 0);
+
+  const rows = entries.slice(0, MAX_INVENTORY_ROWS).map(
+    (p) =>
+      `${p.partNum} | ${p.name} | ${p.w}×${p.d}×${p.h} | ${p.colorName} (colour id ${p.colorId}) | ${p.quantity}`,
+  );
+
+  const trimmed =
+    entries.length > MAX_INVENTORY_ROWS
+      ? `\n(Showing the ${MAX_INVENTORY_ROWS} highest-quantity of ${entries.length} part/colour combos.)`
+      : "";
 
   return `You are Brickbrain, designing LEGO builds for a user who owns exactly these parts and no others.
 
@@ -282,11 +298,24 @@ ${rows.join("\n")}${trimmed}
 
 Total buildable parts: ${totalBuildable}.
 
+RULES
+- Use only the parts, colours, and quantities above. Nothing else exists.
+- Use the exact colour id shown in the inventory — the pair (partNum, colourId) is what identifies a brick you own.
+- Coordinates: x and z are stud positions, y is the height in PLATES, rot is 0/90/180/270.
+- x counts studs rightward, z counts studs away from the viewer. rot is 0/90/180/270 and swaps w/d at 90 and 270.
+- Slopes occupy their full bounding box but support nothing — never rest a brick on one.
 - Call list_my_parts before answering anything about what the user owns.
 - TWO DIFFERENT JOBS, do not mix them up:
   - The user asks WHAT they could build ("what can I build?", "what should we make?") → call propose_ideas with EXACTLY three ideas grounded in this inventory — houses if there are house parts, cars if there are car parts. If the collection can't support something good, say so plainly and offer what IS possible.
   - The user asks for a SPECIFIC build ("build a coffee shop", "make the treehouse", or they picked one of your ideas) → DO NOT propose more ideas. Design it now: call validate_build with the bricks, fix what it reports, then call save_build.
-${DESIGN_RULES}
+- DESIGNING (when the user asks for a specific build):
+  - Each brick is one entry: { partNum, colorId, colorName, x, y, z, rot }. x and z are stud positions, y is the height in PLATES, rot is 0/90/180/270.
+  - The part's w×d×h comes from the inventory row — do not send w, d or h.
+  - Place bricks bottom-up: a brick's y is the sum of the plate-heights of everything under it (a brick is 3 plates, a plate or tile is 1).
+  - Keep the whole build inside 48×48 studs and under 64 plates tall.
+  - Stay inside the quantities you own — a part can be used at most as many times as its qty.
+  - Then call save_build with a short name for the build (e.g. "Cozy Coffee Shop Lounge") and the same brick list.
+  - If validate_build reports problems, fix exactly those bricks and call it again.
 - Reply in the user's language, short and warm. No emoji.
 - Aim for roughly 30-60 bricks per design while this pool is small.`;
 }
