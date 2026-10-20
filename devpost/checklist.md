@@ -62,7 +62,7 @@ Build mode: fast — chosen at first session (learner is agent-experienced and d
   itself.
   Commit: `Add build validator: seven rules, violations as data`
 
-- [ ] **4. You can ask in the chat and get three clickable ideas built on MCP**
+- [x] **4. You can ask in the chat and get three clickable ideas built on MCP**
   Becomes usable: The chat works — greeting on load, then asking returns exactly three idea cards streamed in;
   they are real `McpServer` tools over the in-process transport, with schemas listed from the server.
   Why now: This is the riskiest unfamiliar piece after Rebrickable (the in-memory MCP transport, the agent
@@ -70,11 +70,12 @@ Build mode: fast — chosen at first session (learner is agent-experienced and d
   green before the 3D work means the schedule riskiest item (canvas) can't hide a broken foundation.
   PRD ref: `prd.md > Asking for ideas`, `prd.md > States and Boundaries`, `prd.md > The Core Journey` (steps 3–4)
   Spec ref: `spec.md > Components > mcp/tools.ts`, `spec.md > Components > The agent loop`,
-  `spec.md > Components > ChatPanel`, `spec.md > lib/anthropic.ts`
+  `spec.md > Components > ChatPanel`, `spec.md > lib/gemini.ts`
   Build: `mcp/tools.ts` (five plain functions), `mcp/server.ts` (per-request `InMemoryTransport` pair),
-  `lib/loop.ts` (hand-rolled, six-turn cap — no design loop yet), `lib/anthropic.ts` (model constant + prompt
-  builder), `lib/sse.ts`, ChatPanel with the five event types, Ideas rendering as clickable cards. Requires
-  `ANTHROPIC_API_KEY` in `.env.local`.
+  `lib/loop.ts` (hand-rolled, six-turn cap — no design loop yet), `lib/gemini.ts` (model constant + prompt
+  builder; provider switched from Anthropic to Gemini at this checkpoint — see the deviation note below),
+  `lib/sse.ts`, ChatPanel with the five event types, Ideas rendering as clickable cards. Requires
+  `GEMINI_API_KEY` in `.env.local`.
   Verify (mechanical): Curl `POST /api/chat` with `{messages:[{role:"user",content:"what can I build?"}], ...}`
   → SSE stream contains `ideas` with exactly three items; second POST with an empty inventory → the "add a set
   first" reply path.
@@ -127,9 +128,9 @@ Build mode: fast — chosen at first session (learner is agent-experienced and d
   PRD ref: `prd.md > Refining`, `prd.md > States and Boundaries`
   Spec ref: `spec.md > Important Failure Modes`, `spec.md > lib/sse.ts`
   Build: Refine path (history carries the prior design); error event handling in ChatPanel; Rebrickable
-  404/401/429 mapping into the inline error; empty-buildable-set refusal; localStorage notice; Anthropic
-  failure → chat line only.
-  Verify (mechanical): Break the Anthropic key → chat shows the error line, canvas and collection intact,
+  404/401/429 mapping into the inline error; empty-buildable-set refusal; localStorage notice; model-provider
+  failure (rate limit, timeout, bad key) → chat line only.
+  Verify (mechanical): Break the model key → chat shows the error line, canvas and collection intact,
   page usable; POST a malformed message → zod rejection returned as a tool result; unknown set → inline error
   under the field; private-browsing simulation → one notice, app still runs.
   Learner check: Do the full journey start to finish — add a set, ask, pick, refine — then try to break it
@@ -160,11 +161,16 @@ Activity mode: [live app and editor, explicit static fallback, focused alternati
 
 ## Revisions
 
-<!-- Leave this section empty when you write the checklist — no placeholder bullet.
-     `5-build` appends a bullet here when implementation contradicts an assumption
-     in the plan, in the form:
+- **Model provider: Anthropic → Google Gemini free tier.** The slice-4 checkpoint's learner decision:
+  no card, no prepaid minimum. `lib/anthropic.ts` became `lib/gemini.ts`; the loop speaks
+  `streamGenerateContent?alt=sse` with function declarations (unsupported schema fields stripped), while
+  the MCP server, the five tools, the validator, and every SSE event type stayed unchanged. The spec's
+  Anthropic sections were rewritten to match; `scope.md` keeps its original planning text under a
+  one-paragraph build note because it is the approved pre-build record.
+- **Model ID by live test, not by lineup.** `gemini-3.8-flash` was listed by the account but hung with zero
+  bytes; `gemini-2.5-flash` is closed to new users. `gemini-3.6-flash` answers in ~3.5s and is the constant.
+- **Persona mentions of "Claude"/"Anthropic" in the PRD/scope are historical.** The grounded-chat
+  behavior (three ideas, kernel, self-correction) is provider-independent; the built app uses Gemini.
 
-       - [What changed] — [what the build discovered that made the original plan wrong].
-
-     One bullet per revision, no dates. This is how plan adaptation gets recorded,
-     and it replaces any separate log. -->
+Pending doc polish (ship stage): regenerate `scope.html` / `spec.html` from their Markdown so the rendered
+artifacts carry the provider note; README must credit Rebrickable and document `GEMINI_API_KEY`.

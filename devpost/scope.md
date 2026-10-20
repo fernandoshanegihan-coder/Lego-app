@@ -5,6 +5,11 @@ status: approved
 
 > Visual companion: `devpost/scope.html` — self-contained, no network needed, no build step.
 > **This Markdown file is the canonical document.** The HTML is regenerated after each revision.
+>
+> **Build note (provider):** this scope was written planning on Anthropic's Claude API. During the build
+> the learner chose Google's Gemini free tier instead (`lib/gemini.ts`, no credit card). Everything else in
+> this document — the kernel, the MCP design, the journey — is unchanged. Every "Anthropic"/"Claude"
+> mention below refers to that original plan; the built app uses Gemini.
 
 # Brickbrain *(working name — rename freely)*
 

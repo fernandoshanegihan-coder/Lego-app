@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
-import { getSet, getSetParts, listPartCategories } from "@/rebrickable/client";
-import { makeCategoryResolver } from "@/parts/categories";
-import { normalizeSet, normalizeSetNum } from "@/parts/normalize";
+import { fetchSetNormalized } from "@/rebrickable/fetchSetNormalized";
+import { normalizeSetNum } from "@/parts/normalize";
 
 export const runtime = "nodejs";
 
@@ -29,15 +28,7 @@ export async function POST(req: Request) {
   }
 
   try {
-    const [setMeta, inventory, categories] = await Promise.all([
-      getSet(setNum),
-      getSetParts(setNum),
-      listPartCategories(),
-    ]);
-
-    // Categories come from a cached list; the resolver needs the same throttle.
-    const resolver = makeCategoryResolver(categories);
-    const { set } = normalizeSet(setMeta, inventory.results, resolver);
+    const { set } = await fetchSetNormalized(setNum);
 
     if (set.buildableParts === 0) {
       // Per the spec's failure-mode table: refuse rather than add an empty shell.

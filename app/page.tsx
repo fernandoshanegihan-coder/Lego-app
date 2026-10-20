@@ -42,7 +42,7 @@ export default function Page() {
           <BuildCanvas working={false} />
           <KernelStrip available={buildable} />
         </div>
-        <ChatPanel />
+        <ChatPanel sets={sets} />
       </div>
     </div>
   );

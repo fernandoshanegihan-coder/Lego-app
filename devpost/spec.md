@@ -12,7 +12,7 @@ status: approved
 Brickbrain is one web page with two halves. On the left, a 3D canvas. On the right, a chat panel.
 
 Behind the page sits a small server — the same program, in a different folder — because two secrets live there
-that the browser must never see: your Anthropic API key and your Rebrickable API key. When you add a set, the
+that the browser must never see: your model-provider API key and your Rebrickable API key. When you add a set, the
 server asks Rebrickable what parts are in it and hands the parts back to your browser. Your browser keeps them.
 Nothing about you is stored on the server.
 
@@ -59,7 +59,7 @@ Next.js process, one in-memory MCP server per conversation, two outbound HTTPS c
 | Framework | **[Next.js](https://nextjs.org/docs)** (App Router), TypeScript | One process, one command, one port. API routes hold the secrets; React renders the page. |
 | UI | **[React](https://react.dev)** + **[Tailwind CSS](https://tailwindcss.com/docs)** | Tailwind's arbitrary values map the PRD palette straight into classes with no config sprawl. |
 | 3D | **[three.js](https://threejs.org/docs/)** via **[@react-three/fiber](https://r3f.docs.pmnd.rs/)** + **[@react-three/drei](https://drei.docs.pmnd.rs/)** | The build is a list; the scene is a `.map()` over it. Layer-by-layer reveal is a slice, not an animation engine. drei gives `OrbitControls` and environment lighting in one line. |
-| Model access | **[@anthropic-ai/sdk](https://docs.anthropic.com/en/api/client-sdks)** | Official SDK, streaming, and the MCP bridge helpers. |
+| Model access | **Google Gemini API** (`generativelanguage.googleapis.com`, free tier) | Streaming SSE and native function calling over plain REST — no SDK dependency, and the free tier needs no credit card. The provider was switched from Anthropic at the slice-4 checkpoint (see devpost/checklist.md); the loop and tools are provider-independent. |
 | Tools transport | **[@modelcontextprotocol/sdk](https://modelcontextprotocol.io/docs)** | Real MCP over `InMemoryTransport`, so tool definitions come *from the MCP server* rather than being hand-written twice. |
 | Validation | **[zod](https://zod.dev)** | The model's output is untrusted input. Schemas catch malformed designs at the boundary instead of as a blank canvas. |
 | Tests | **[Vitest](https://vitest.dev)** | Fast, zero-config with TypeScript, and the validator is pure functions. |
@@ -70,7 +70,7 @@ separate Express) is more explicit and roughly a day more setup for the same res
 
 **Unverified at spec time, check first thing in the build:**
 
-1. The exact **model ID** — set once in `lib/anthropic.ts`, confirmed against Anthropic's model list.
+1. The exact **model ID** — set once in `lib/gemini.ts`, confirmed against the account's live model list (`gemini-3.8-flash` was listed but hung; `gemini-3.6-flash` answers).
 2. The **MCP helper import paths** in the SDK (`mcpTools` / `toolRunner` live under a beta namespace). The
    design does **not depend** on them; see *The agent loop* below.
 3. **Rebrickable part-category IDs** — fetched at runtime, not hardcoded.
@@ -81,7 +81,7 @@ separate Express) is more explicit and roughly a day more setup for the same res
 **Local only. No deployment.** Submission requires a demo video and a public GitHub repository; neither is
 replaced by hosting. The API keys therefore stay on one machine, which removes a whole class of problems.
 
-**Requirements:** Node 20+, npm, a free Rebrickable account (API key), an Anthropic API key.
+**Requirements:** Node 20+, npm, a free Rebrickable account (API key), a free Google AI Studio key (no card).
 
 **Start:**
 
@@ -221,7 +221,7 @@ PRD ref: `prd.md > The inventory guarantee (the kernel)`.
 
 ### `validateBuild` — the kernel's enforcer
 
-`validate/validateBuild.ts`. A pure function, no I/O, no Anthropic. This is the most important file in the repo
+`validate/validateBuild.ts`. A pure function, no I/O, no provider. This is the most important file in the repo
 and the only one with real test coverage.
 
 **The occupancy model.** Every brick occupies a box on an integer grid measured in **studs × plates**:
@@ -294,8 +294,7 @@ Node runtime. Per request:
 
 1. Parse `{ messages, inventory }`; validate the inventory shape with zod.
 2. Build the in-process MCP server for this inventory; connect a client.
-3. `client.listTools()` → convert to Anthropic tool schemas. **The tool definitions come from the MCP server**,
-   so there is exactly one description of each tool in the codebase.
+3. `client.listTools()` → convert to the provider's function declarations. **The tool definitions come from the MCP server**, so there is exactly one description of each tool in the codebase.
 4. Run the agent loop (below), streaming events back.
 5. Close the client and server. Nothing survives the request.
 
@@ -316,21 +315,21 @@ compose awkwardly in beta helpers, the loop is ~40 lines, and making it explicit
 messages = [systemPrompt(inventory), ...history]
 
 for turn in 1..6:
-  response = anthropic.messages.stream({ model, system, messages, tools })
+  response = streamGenerateContent({ model, system, messages, tools })   // SSE
 
-  for each content block:
-    text        → emit `text` event
-    tool_use    → record
+  for each content chunk:
+    text part   → emit `text` event
+    functionCall → record (preserve thoughtSignature parts for history)
 
-  if response.stop_reason !== 'tool_use': break
+  if no functionCall: break
 
   results = []
-  for each tool_use:
+  for each call:
     emit `kernel` if the tool is validate_build
     result = await mcpClient.callTool({ name, arguments })
-    results.push({ type: 'tool_result', tool_use_id, content })
+    results.push({ functionResponse: { name, response } })
 
-  messages += [assistantTurn, { role: 'user', content: results }]
+  messages += [modelTurn, { role: 'user', content: results }]
 ```
 
 The loop is transport-agnostic: it only ever calls `mcpClient.callTool`. Swapping the in-process server for a
@@ -340,7 +339,11 @@ stdio subprocess is a two-line change. That was the de-risking rule from `scope.
 bricks, renders what remains, and emits a `kernel` event saying how many were dropped. This is the layer that
 makes the guarantee true even when the model fails.
 
-### `lib/anthropic.ts` — the system prompt
+### `lib/gemini.ts` — the provider and the system prompt
+
+The only provider-aware file. Wraps `POST …/{model}:streamGenerateContent?alt=sse`, holds the model
+constant, and converts MCP tool schemas into Gemini function declarations (Gemini accepts an OpenAPI
+subset, so unsupported fields are stripped — see `sanitize()`).
 
 Assembles the prompt. The inventory block is the load-bearing part:
 
@@ -364,9 +367,11 @@ prompt is capped to the highest-quantity rows and says so. Measured during the b
 
 ### Model choice
 
-One constant in `lib/anthropic.ts`. Default: the cheapest current Haiku-class model — this task is
-constrained composition, not open-ended reasoning, and the validator catches what the model gets wrong. A
-Haiku-class build costs a fraction of a cent; a Sonnet-class one costs ~20×. Switch by editing one line.
+One constant in `lib/gemini.ts`. Current: **`gemini-3.6-flash`** — chosen by live test, not by brochure:
+`gemini-3.8-flash` was listed by the account but hung with zero bytes, and `gemini-2.5-flash` is closed to
+new users. The free tier costs nothing and needs no card; this task is constrained composition, and the
+validator catches what the model gets wrong — model quality is a soft constraint by design.
+Tested fallback: `gemini-3.1-flash-lite`, same REST shape, one line.
 
 ## Data Model
 
@@ -451,7 +456,7 @@ lego-app/
 │   ├── types.ts                   # every shared type in this doc
 │   ├── collection.ts              # aggregate(), add-set, duplicate detection
 │   ├── storage.ts                 # localStorage read/write + version key
-│   ├── anthropic.ts               # client, model constant, system prompt builder
+│   ├── gemini.ts                  # provider client, model constant, system prompt builder
 │   ├── loop.ts                    # the agent loop + three-strike rule
 │   └── sse.ts                     # event-stream encoding helper
 │
@@ -506,19 +511,20 @@ and on the page footer.
 **Failure modes handled:** 404 (no such set) → inline error, "No set with that number." 401 → "Rebrickable
 rejected the API key." 429 → single retry after 2s, then inline error.
 
-### Anthropic
+### Gemini (Google AI Studio)
 
-Docs: <https://docs.anthropic.com>
+Docs: <https://ai.google.dev/gemini-api/docs>
 
-`POST /v1/messages`, streamed. Tools are passed as `tools: [...]` and results returned as `tool_result`
-content blocks in a `user` turn.
+`POST /v1beta/models/{model}:streamGenerateContent?alt=sse`, key in the `x-goog-api-key` header. Tools are
+`functionDeclarations`; results return as `functionResponse` parts in a `user` turn. Thinking-model
+`thought` parts are hidden from chat but passed back verbatim (signatures preserved) for multi-turn calls.
 
-**Cost:**, per token. A one-set design lands around $0.001 on a Haiku-class model; a five-set build with two
-correction rounds, under $0.01. A full demo session is cents.
+**Cost:** free tier, no credit card. A full demo session is zero. Failure modes handled: 429 (free-tier
+limit → one plain chat line), 120s hard timeout, unreachable API → one plain chat line.
 
 ### Runtime dependencies, all free
 
-Next.js, React, three.js, @react-three/fiber, @react-three/drei, @anthropic-ai/sdk,
+Next.js, React, three.js, @react-three/fiber, @react-three/drei,
 @modelcontextprotocol/sdk, zod, tailwindcss, vitest, tsx.
 
 ## Important Failure Modes
@@ -532,7 +538,7 @@ Next.js, React, three.js, @react-three/fiber, @react-three/drei, @anthropic-ai/s
 - **Malformed model output** (bad JSON, a coordinate that isn't an integer) → zod rejects it inside the tool
   call and the error is returned *as a tool result*, so Claude retries with the schema spelled out. Only if it
   fails twice does the user see *"The model returned something I couldn't read. Try again."*
-- **Anthropic unreachable or key rejected** → a single plain line in the chat. Canvas and collection untouched.
+- **The model API unreachable or key rejected** → a single plain line in the chat. Canvas and collection untouched.
   The page never white-screens.
 - **`localStorage` unavailable or full** (private mode, quota) → the app runs but the collection doesn't
   persist; a one-line notice appears once.
@@ -609,7 +615,7 @@ Claude's second `validate_build` call passes after a first one failed — plus t
 
 **Open, all low-impact and settleable during the build:**
 
-- **Exact model ID** — confirm against Anthropic's model list on day one; one constant.
+- **Exact model ID** — confirmed against the account's live model list; one constant (`lib/gemini.ts`).
 - **SDK helper import paths** — irrelevant if the hand-rolled loop holds, which is the plan.
 - **Rebrickable category IDs** — fetched at runtime; verify the bricks/plates/tiles/slope allowlist covers a
   real set on day one.
