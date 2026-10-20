@@ -80,6 +80,7 @@ export async function runLoop(opts: LoopOptions): Promise<void> {
 
         parts = collected;
         responded = true;
+        console.log(`[brickbrain] turn ${turn} served by ${provider.id} (${provider.models[0]})`);
         break;
       } catch (err) {
         lastError = err instanceof Error ? err : new Error(String(err));
