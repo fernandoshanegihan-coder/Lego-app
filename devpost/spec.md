@@ -47,7 +47,7 @@ Next.js process, one in-memory MCP server per conversation, two outbound HTTPS c
 | **2. Add a set** | `SetField` posts the number to `/api/sets`. The route asks Rebrickable, normalizes the parts, drops anything unrenderable, and returns a `StoredSet`. The browser merges it and writes `localStorage`. | `components/SetField.tsx` → `app/api/sets/route.ts` → `rebrickable/client.ts` → `parts/normalize.ts` |
 | **3. Ask** | `ChatPanel` posts `{ messages, inventory }`. The route builds the system prompt, spins up an in-process MCP server bound to *this* inventory, lists its tools, and opens the agent loop. Claude calls `propose_ideas` with exactly three items; they stream back as `ideas` events. | `components/ChatPanel.tsx` → `app/api/chat/route.ts` → `lib/loop.ts` |
 | **4. Pick** | Clicking an `IdeaCard` sends its title as a normal user message. Nothing special happens — it is the same path as step 3. | `components/IdeaCard.tsx` |
-| **5. Design** | Claude composes a design and calls `validate_build`. The MCP server runs the pure validator and returns `{ ok: false, violations }`. Claude edits and calls again. When it passes — or after six turns — the `build` event goes to the browser. | `mcp/tools.ts` → `validate/validateBuild.ts` → `lib/loop.ts` |
+| **5. Design** | Claude composes a design and calls `validate_build`. The MCP server runs the pure validator and returns `{ ok: false, violations }`. Claude edits and calls again. When it passes — or after twelve turns, or the 150s budget — the `build` event goes to the browser. | `mcp/tools.ts` → `validate/validateBuild.ts` → `lib/loop.ts` |
 | **6. See it** | `BuildCanvas` sorts the bricks by `y` and reveals them on a 25ms interval. `KernelStrip` shows `used / available`. | `components/BuildCanvas.tsx`, `scene/brickGeometry.ts` |
 | **7. Refine** | The same path as step 3. History carries the previous design, so "make it taller" has something to modify. Revalidation is automatic — every design passes through `validate_build`. | `lib/loop.ts` |
 | **8. Success** | The strip is green, the counter reconciles against the pool, and every brick on screen maps to a part in `localStorage`. | `components/KernelStrip.tsx` |
@@ -314,7 +314,7 @@ compose awkwardly in beta helpers, the loop is ~40 lines, and making it explicit
 ```
 messages = [systemPrompt(inventory), ...history]
 
-for turn in 1..6:
+for turn in 1..12:          # and a 150s wall-clock budget
   response = streamGenerateContent({ model, system, messages, tools })   // SSE
 
   for each content chunk:
@@ -338,7 +338,6 @@ stdio subprocess is a two-line change. That was the de-risking rule from `scope.
 **The three-strike rule.** If turn 6 ends with `validate_build` still failing, the route drops the violating
 bricks, renders what remains, and emits a `kernel` event saying how many were dropped. This is the layer that
 makes the guarantee true even when the model fails.
-
 ### `lib/gemini.ts` — the provider and the system prompt
 
 The only provider-aware file. Wraps `POST …/{model}:streamGenerateContent?alt=sse`, holds the model
@@ -359,7 +358,9 @@ RULES
 - Use only the parts, colours, and quantities above.
 - Coordinates: x and z in studs, y in plates. A brick is 3 plates; a plate is 1.
 - Call validate_build before returning any design. Fix what it reports.
-- Aim for roughly 30–60 bricks for this pool.
+- Aim for a build whose size scales with the collection: one set → ~30–60 bricks,
+  several sets → ~90–200. The number is given to the model, because the pool is
+  measured in PIECES while the model only sees part/colour rows.
 ```
 
 A 1,200-part set yields ~150–250 distinct part/colour rows, roughly 3–4k tokens. Above that threshold the

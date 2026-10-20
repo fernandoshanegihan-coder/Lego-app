@@ -223,14 +223,14 @@ export const TOOLS: RegisteredTool[] = [
   {
     name: "validate_build",
     description:
-      "Checks a proposed brick list against the user's actual inventory: known parts, known colours, quantities, bounds, overlap, support. Violations come back as a list with brick indexes — fix every one and call again. ALWAYS call this before saving or showing a design.",
+      "Checks a proposed brick list against the user's actual inventory: known parts, known colours, quantities, bounds, overlap, support. Violations come back as a list with brick indexes — fix every one and call again. ALWAYS pass the COMPLETE design (every brick of every section, not just the part you just added) — a section sent on its own looks like it is floating. ALWAYS call this before saving or showing a design.",
     inputShape: validateBuildShape,
     run: validateBuildTool,
   },
   {
     name: "save_build",
     description:
-      "Submits a verified design to the canvas. It is validated again on save; an invalid build is refused with the reasons. Only call once validate_build passes.",
+      "Submits a verified design to the canvas. It is validated again on save; an invalid build is refused with the reasons. Call this ONCE, with the COMPLETE design (floor + walls + top) — a partial build is saved as it is, and it will look unfinished. Only call once validate_build passes.",
     inputShape: saveBuildShape,
     run: saveBuild,
   },

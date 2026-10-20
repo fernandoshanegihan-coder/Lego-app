@@ -204,6 +204,20 @@ Activity mode: [live app and editor, explicit static fallback, focused alternati
   demo hook instead assembles a small legal build FROM THE USER'S OWN COLLECTION
   (`lib/sampleBuild.ts`), so it can never show a brick the user doesn't have — the same rule the
   product makes everywhere else. It is also a deterministic shot for the demo video.
+- **Builds were far smaller than the collection, and the reason was measured, not guessed.**
+  Four causes, all fixed: the prompt said "aim for roughly 30-60 bricks" with no scaling
+  (the PRD says the size scales with the collection); the model saw only 200 of the pool's
+  389 part/colour rows, so its sense of "how much do I own" was half the truth; a 122-brick
+  attempt came back with 45 violations, and the model then shrank the design rather than
+  fix 45 bricks; and the six-turn cap ran out at ~30 bricks. Now: the target scales with
+  the piece count, the whole inventory is shown, the loop has twelve turns and a 150-second
+  budget, and the prompt says to fix violations rather than shrink, and to finish the build
+  instead of asking permission. A live run produced 60 bricks (trace: 34 → 56 bad → 50 bad
+  → 46 ok → 56 bad → 60 bad → 60 ok) where it used to produce 19.
+- **A rate-limited model cost 30s per turn.** The provider re-probed the 429'd model on
+  every turn, so a twelve-turn request once ran for 12 minutes. A provider per request now
+  remembers the model that answered and goes straight to it, and the loop has a wall-clock
+  budget. Requests now finish in ~60-75 seconds.
 - **An external client driving the app was built, then removed at the learner's request.**
   It worked end to end: the MCP server read the user's live collection from the local server,
   Claude designed against it, the kernel validated it, and the design landed on the canvas

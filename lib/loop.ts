@@ -21,7 +21,19 @@ import type { PlacedBrick, Violation } from "@/lib/types";
 import type { ToolContext, AnthropicTool } from "@/mcp/tools";
 import type { ChatProvider, NeutralPart, Turn } from "@/lib/provider";
 
-export const MAX_TURNS = 6;
+/**
+ * Turns per request. A big design is built in sections, and every section
+ * costs a validate/fix round — at 8 turns the model ran out of room at ~30
+ * bricks, so there is headroom for a real build.
+ */
+export const MAX_TURNS = 12;
+
+/**
+ * Wall-clock budget for one request. The turn cap alone was not enough: on a
+ * rate-limited tier a single turn can take 30s+, and a twelve-turn request
+ * once ran for twelve minutes. The user gets whatever is legal by then.
+ */
+export const MAX_DURATION_MS = 150_000;
 
 export interface LoopOptions {
   /** The system prompt — built from this request's pool. */
@@ -50,7 +62,14 @@ export async function runLoop(opts: LoopOptions): Promise<void> {
     parts: [{ kind: "text", text: m.content }],
   }));
 
+  const startedAt = Date.now();
+
   for (let turn = 1; turn <= MAX_TURNS; turn++) {
+    if (Date.now() - startedAt > MAX_DURATION_MS) {
+      emit({ type: "error", message: "That's as far as I got in the time available." });
+      break;
+    }
+
     // ---- one turn, trying each provider in turn ---------------------------
     let parts: NeutralPart[] = [];
     let responded = false;

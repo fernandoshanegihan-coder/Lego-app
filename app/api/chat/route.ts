@@ -1,7 +1,6 @@
 import { z } from "zod";
 import { encodeSse, type ChatEvent, type ChatEventHandler } from "@/lib/sse";
-import { systemPrompt, currentDesignBlock } from "@/lib/gemini";
-import { geminiProvider } from "@/lib/gemini";
+import { systemPrompt, currentDesignBlock, createGeminiProvider } from "@/lib/gemini";
 import { openRouterProvider } from "@/lib/openrouter";
 import type { ChatProvider } from "@/lib/provider";
 import { runLoop } from "@/lib/loop";
@@ -76,7 +75,8 @@ const bodySchema = z.object({
  */
 function buildProviders(): ChatProvider[] {
   const providers: ChatProvider[] = [];
-  if (process.env.GEMINI_API_KEY) providers.push(geminiProvider);
+  // A fresh provider per request, so it can remember the model that worked.
+  if (process.env.GEMINI_API_KEY) providers.push(createGeminiProvider());
   if (process.env.OPENROUTER_API_KEY) providers.push(openRouterProvider);
   return providers;
 }

@@ -38,76 +38,91 @@ export function geminiKey(): string {
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-/** The provider Gemini's wire format speaks. */
-export const geminiProvider: ChatProvider = {
-  id: "gemini",
-  label: "Gemini",
-  models: MODEL_CHAIN,
+/**
+ * A provider per request, so it can remember which model answered last.
+ *
+ * The free tier rate-limits one model hard (429 on every call). Re-probing it
+ * on every turn cost seconds each time — a twelve-turn request once ran for
+ * twelve minutes — so a provider remembers: once a model answers, go straight
+ * to it for the rest of the request.
+ */
+export function createGeminiProvider(): ChatProvider {
+  let workingModel: string | null = null;
 
-  async *stream(request: ProviderRequest): AsyncGenerator<NeutralPart> {
-    const key = geminiKey();
-    let lastDetail = "";
+  return {
+    id: "gemini",
+    label: "Gemini",
+    models: MODEL_CHAIN,
 
-    for (let round = 0; round < 2; round++) {
-      for (const model of MODEL_CHAIN) {
-        const controller = new AbortController();
-        const timer = setTimeout(() => controller.abort(), 120_000);
-        let res: Response;
-        try {
-          res = await fetch(`${BASE}/models/${model}:streamGenerateContent?alt=sse`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json", "x-goog-api-key": key },
-            body: JSON.stringify({
-              systemInstruction: { parts: [{ text: request.system }] },
-              contents: toGeminiContents(request.history),
-              tools: [{ functionDeclarations: toFunctionDeclarations(request.tools) }],
-              generationConfig: { maxOutputTokens: 12288 },
-            }),
-            signal: controller.signal,
-          });
-        } catch (err) {
-          if (err instanceof Error && err.name === "AbortError") {
-            throw new Error("The model took too long to respond. Try again.");
+    async *stream(request: ProviderRequest): AsyncGenerator<NeutralPart> {
+      const key = geminiKey();
+      let lastDetail = "";
+
+      for (let round = 0; round < 2; round++) {
+        for (const model of MODEL_CHAIN) {
+          // Skip models we already know are rate-limited.
+          if (workingModel && model !== workingModel) continue;
+
+          const controller = new AbortController();
+          const timer = setTimeout(() => controller.abort(), 120_000);
+          let res: Response;
+          try {
+            res = await fetch(`${BASE}/models/${model}:streamGenerateContent?alt=sse`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json", "x-goog-api-key": key },
+              body: JSON.stringify({
+                systemInstruction: { parts: [{ text: request.system }] },
+                contents: toGeminiContents(request.history),
+                tools: [{ functionDeclarations: toFunctionDeclarations(request.tools) }],
+                generationConfig: { maxOutputTokens: 12288 },
+              }),
+              signal: controller.signal,
+            });
+          } catch (err) {
+            if (err instanceof Error && err.name === "AbortError") {
+              throw new Error("The model took too long to respond. Try again.");
+            }
+            throw err;
+          } finally {
+            clearTimeout(timer);
           }
-          throw err;
-        } finally {
-          clearTimeout(timer);
-        }
 
-        if (res.ok) {
-          yield* readGeminiStream(res);
-          return;
-        }
+          if (res.ok) {
+            workingModel = model;
+            yield* readGeminiStream(res);
+            return;
+          }
 
-        const detail = await res.text().catch(() => "");
-        lastDetail = detail.slice(0, 200);
-        // Log the provider's own words — the chat only shows a friendly line.
-        console.error(`[brickbrain] gemini ${model} → ${res.status}: ${lastDetail}`);
+          const detail = await res.text().catch(() => "");
+          lastDetail = detail.slice(0, 200);
+          // Log the provider's own words — the chat only shows a friendly line.
+          console.error(`[brickbrain] gemini ${model} → ${res.status}: ${lastDetail}`);
 
-        if (res.status === 429 || res.status === 503) {
-          // Free-tier congestion: try the next model immediately.
-          continue;
+          if (res.status === 429 || res.status === 503) {
+            // Free-tier congestion: try the next model immediately.
+            continue;
+          }
+          if (res.status === 401 || res.status === 403) {
+            // The key itself is wrong — retrying another model won't help.
+            throw new Error(
+              "The model key was rejected. Check GEMINI_API_KEY in .env.local and reload.",
+            );
+          }
+          if (res.status === 400) {
+            // Usually the request shape, not the key. The provider says more.
+            throw new Error(`The model rejected the request. ${lastDetail}`);
+          }
+          throw new Error(`The model request failed (${res.status}). ${lastDetail}`);
         }
-        if (res.status === 401 || res.status === 403) {
-          // The key itself is wrong — retrying another model won't help.
-          throw new Error(
-            "The model key was rejected. Check GEMINI_API_KEY in .env.local and reload.",
-          );
-        }
-        if (res.status === 400) {
-          // Usually the request shape, not the key. The provider says more.
-          throw new Error(`The model rejected the request. ${lastDetail}`);
-        }
-        throw new Error(`The model request failed (${res.status}). ${lastDetail}`);
+        await sleep(1500 * (round + 1));
       }
-      await sleep(1500 * (round + 1));
-    }
 
-    throw new Error(
-      "The model is busy right now (free-tier demand). Try again in a minute.",
-    );
-  },
-};
+      throw new Error(
+        "The model is busy right now (free-tier demand). Try again in a minute.",
+      );
+    },
+  };
+}
 
 interface GeminiPart {
   text?: string;
@@ -255,10 +270,11 @@ function sanitizeProps(props: unknown): Record<string, unknown> {
 // ---------------------------------------------------------------------------
 
 /**
- * Rows shown from the inventory. A five-set pool can reach ~400 rows; the cap
- * keeps the prompt bounded and says so when it trims.
+ * Rows shown from the inventory. A five-set pool has ~390 part/colour combos;
+ * the cap keeps the prompt bounded, and it only starts trimming beyond that.
+ * (At 200 rows the model was seeing half the collection.)
  */
-const MAX_INVENTORY_ROWS = 200;
+const MAX_INVENTORY_ROWS = 400;
 
 /**
  * The current design, so a refinement request ("make it taller") can edit the
@@ -315,7 +331,31 @@ RULES
   - Keep the whole build inside 48×48 studs and under 64 plates tall.
   - Stay inside the quantities you own — a part can be used at most as many times as its qty.
   - Then call save_build with a short name for the build (e.g. "Cozy Coffee Shop Lounge") and the same brick list.
-  - If validate_build reports problems, fix exactly those bricks and call it again.
+  - If validate_build reports problems, fix exactly those bricks and call it again. Do NOT shrink the design to make the problems go away — fix the bricks, unless the user asked for something smaller.
+  - Design the COMPLETE build in one pass — a floor, the walls, and something on top. A floor on its own is not a build, and neither is a box with nothing inside it.
+  - Never ask a question and never stop halfway: build the whole thing, then call save_build once with the finished design.
 - Reply in the user's language, short and warm. No emoji.
-- Aim for roughly 30-60 bricks per design while this pool is small.`;
+- ${sizeTarget(totalBuildable)}`;
+}
+
+/**
+ * How big a build should be, scaled to the collection.
+ * `prd.md > Designing in 3D`: one set → ~30–60 bricks, five sets → ~150–250.
+ *
+ * The pool's piece count is the measure — the model sees part/colour combos,
+ * not pieces — so the number has to be given to it, and given as an
+ * instruction. A soft "aim for" was ignored: the model built 19 bricks with
+ * 2,783 parts available. "Use at least N" was obeyed.
+ */
+function sizeTarget(totalBuildable: number): string {
+  if (totalBuildable < 800) {
+    return `Your collection holds ${totalBuildable} buildable parts. Build a small model: use AT LEAST 30 bricks.`;
+  }
+  if (totalBuildable < 1600) {
+    return `Your collection holds ${totalBuildable} buildable parts. Build a substantial model: use AT LEAST 50 bricks, and keep going until you have used 60-90 of them.`;
+  }
+  if (totalBuildable < 3000) {
+    return `Your collection holds ${totalBuildable} buildable parts. Build a substantial model: use AT LEAST 70 bricks, and keep going until you have used 90-140 of them. Build it in sections (floor, then walls, then roof) and validate each section before adding the next — do not try to place 100 bricks in one go.`;
+  }
+  return `Your collection holds ${totalBuildable} buildable parts. Build a large model: use AT LEAST 120 bricks, and keep going until you have used 150-250 of them. Build it in sections and validate each one.`;
 }
